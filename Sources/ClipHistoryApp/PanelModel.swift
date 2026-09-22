@@ -28,6 +28,16 @@ final class PanelModel: ObservableObject {
     @Published var items: [ClipItem] = []
     @Published var selectedID: ClipItem.ID?
     @Published var accessibilityTrusted = true
+    /// Active category filter; `nil` means "全部".
+    @Published var category: ClipCategory? {
+        didSet {
+            if category != oldValue { applyFilter() }
+        }
+    }
+    /// Count of items per category for the filter bar badges.
+    @Published var counts: [ClipCategory: Int] = [:]
+
+    private var allItems: [ClipItem] = []
 
     let store: Store
 
@@ -36,7 +46,24 @@ final class PanelModel: ObservableObject {
     }
 
     func reload() {
-        items = (try? store.items(query: query)) ?? []
+        allItems = (try? store.items(query: query)) ?? []
+        counts = allItems.reduce(into: [:]) { result, item in
+            result[item.category, default: 0] += 1
+        }
+        applyFilter()
+    }
+
+    /// Categories that currently have at least one item, in a stable order.
+    var availableCategories: [ClipCategory] {
+        ClipCategory.allCases.filter { (counts[$0] ?? 0) > 0 }
+    }
+
+    private func applyFilter() {
+        if let category {
+            items = allItems.filter { $0.category == category }
+        } else {
+            items = allItems
+        }
         if let selectedID, items.contains(where: { $0.id == selectedID }) {
             return
         }

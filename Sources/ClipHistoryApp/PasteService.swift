@@ -13,6 +13,15 @@ final class PasteService {
 
     func paste(_ text: String, preferredApp: NSRunningApplication? = nil) {
         monitor.writeWithoutRecording(text)
+        deliver(preferredApp: preferredApp)
+    }
+
+    func pasteImage(_ data: Data, preferredApp: NSRunningApplication? = nil) {
+        monitor.writeImageWithoutRecording(data)
+        deliver(preferredApp: preferredApp)
+    }
+
+    private func deliver(preferredApp: NSRunningApplication?) {
         let target = preferredApp ?? tracker.frontmostOtherApp()
         if let target, !FrontAppTracker.isSelf(target) {
             target.activate()

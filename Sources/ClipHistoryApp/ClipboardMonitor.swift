@@ -45,6 +45,16 @@ final class ClipboardMonitor {
         lastChangeCount = pasteboard.changeCount
     }
 
+    func writeImageWithoutRecording(_ data: Data) {
+        pasteboard.clearContents()
+        if let image = NSImage(data: data) {
+            pasteboard.writeObjects([image])
+        } else {
+            pasteboard.setData(data, forType: .png)
+        }
+        lastChangeCount = pasteboard.changeCount
+    }
+
     private func poll() {
         let count = pasteboard.changeCount
         guard count != lastChangeCount else { return }
@@ -55,20 +65,62 @@ final class ClipboardMonitor {
     private func captureCurrent() {
         lastChangeCount = pasteboard.changeCount
         guard !containsIgnoredType() else { return }
-        guard let raw = pasteboard.string(forType: .string) else { return }
-        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        let clipped = String(text.prefix(200_000))
+
+        // Prefer meaningful text; fall back to an image (e.g. screenshots, or
+        // images copied from a browser, which carry no usable string).
+        if let raw = pasteboard.string(forType: .string),
+           !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            recordText(String(text.prefix(200_000)))
+        } else if let image = imageFromPasteboard() {
+            recordImage(image)
+        }
+    }
+
+    private func recordText(_ text: String) {
         do {
-            try store.recordHistory(clipped)
-            try store.cleanup(
-                maxHistory: settings.cleanupMaxHistory,
-                maxAgeDays: settings.cleanupMaxAgeDays
-            )
+            try store.recordHistory(text)
+            try cleanup()
             onChange?()
         } catch {
             NSLog("剪贴板记录存储失败：\(error)")
         }
+    }
+
+    private func recordImage(_ image: NSImage) {
+        guard
+            let tiff = image.tiffRepresentation,
+            let rep = NSBitmapImageRep(data: tiff),
+            let png = rep.representation(using: .png, properties: [:])
+        else { return }
+        // Skip very large images to keep the local DB lean.
+        guard png.count <= 12_000_000 else { return }
+        do {
+            try store.recordImage(png, width: rep.pixelsWide, height: rep.pixelsHigh)
+            try cleanup()
+            onChange?()
+        } catch {
+            NSLog("剪贴板图片存储失败：\(error)")
+        }
+    }
+
+    private func cleanup() throws {
+        try store.cleanup(
+            maxHistory: settings.cleanupMaxHistory,
+            maxAgeDays: settings.cleanupMaxAgeDays
+        )
+    }
+
+    private func imageFromPasteboard() -> NSImage? {
+        let imageTypes: Set<NSPasteboard.PasteboardType> = [.png, .tiff]
+        guard let types = pasteboard.types, types.contains(where: { imageTypes.contains($0) }) else {
+            return nil
+        }
+        if let objects = pasteboard.readObjects(forClasses: [NSImage.self], options: nil),
+           let image = objects.first as? NSImage {
+            return image
+        }
+        return nil
     }
 
     private func containsIgnoredType() -> Bool {

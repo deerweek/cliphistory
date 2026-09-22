@@ -75,6 +75,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     func show(page: PanelPage = .list, makeKey: Bool = true) {
         model.page = page
         if page == .list {
+            model.category = nil
             model.query = ""
             model.reload()
         }
@@ -158,7 +159,11 @@ final class PanelController: NSObject, NSWindowDelegate {
         if settings.panelMode == .dismissAfterPaste {
             hide()
         }
-        pasteService.paste(item.body, preferredApp: preferred)
+        if item.contentType == .image, let data = item.imageData {
+            pasteService.pasteImage(data, preferredApp: preferred)
+        } else {
+            pasteService.paste(item.body, preferredApp: preferred)
+        }
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -306,6 +311,13 @@ final class PanelController: NSObject, NSWindowDelegate {
             return nil
         }
         guard model.page == .list else { return event }
+        // ⌘1–9 pastes the Nth visible item directly (no mouse needed).
+        if event.modifierFlags.contains(.command), let index = Self.digitIndex(for: event.keyCode) {
+            if index < model.items.count {
+                paste(model.items[index])
+                return nil
+            }
+        }
         switch event.keyCode {
         case 36, 76:
             if let item = model.selectedItem {
@@ -342,4 +354,20 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     private static let topLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.assistiveTechHighWindow)))
+
+    /// Maps a number-row key code (1–9) to a 0-based list index.
+    private static func digitIndex(for keyCode: UInt16) -> Int? {
+        switch keyCode {
+        case 18: return 0
+        case 19: return 1
+        case 20: return 2
+        case 21: return 3
+        case 23: return 4
+        case 22: return 5
+        case 26: return 6
+        case 28: return 7
+        case 25: return 8
+        default: return nil
+        }
+    }
 }

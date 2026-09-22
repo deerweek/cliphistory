@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct PanelView: View {
@@ -7,6 +8,8 @@ struct PanelView: View {
     var onSaveSnippet: (String, String) -> Void
     var onClearUnpinned: () -> Void
     var onPageChange: (PanelPage) -> Void
+
+    @Namespace private var categoryNS
 
     var body: some View {
         VStack(spacing: 0) {
@@ -68,6 +71,9 @@ struct PanelView: View {
     private var listPage: some View {
         VStack(spacing: 0) {
             header
+            if !model.counts.isEmpty {
+                categoryBar
+            }
             if !model.accessibilityTrusted {
                 accessibilityBanner
             }
@@ -137,6 +143,54 @@ struct PanelView: View {
         )
     }
 
+    // MARK: - Category filter bar
+
+    private var categoryBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                categoryChip(nil, title: "全部", symbol: "square.grid.2x2",
+                             count: model.counts.values.reduce(0, +))
+                ForEach(model.availableCategories, id: \.self) { category in
+                    categoryChip(category, title: category.title, symbol: category.symbolName,
+                                 count: model.counts[category])
+                }
+            }
+            .padding(.horizontal, Theme.Space.lg)
+            .padding(.bottom, Theme.Space.sm)
+        }
+    }
+
+    private func categoryChip(_ category: ClipCategory?, title: String, symbol: String, count: Int?) -> some View {
+        let selected = model.category == category
+        return Button {
+            withAnimation(.snappy(duration: 0.22)) { model.category = category }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: symbol).font(.system(size: 10, weight: .semibold))
+                Text(title).font(.system(size: 11, weight: .medium))
+                if let count {
+                    Text("\(count)")
+                        .font(.system(size: 10, weight: .semibold))
+                        .monospacedDigit()
+                        .opacity(0.7)
+                }
+            }
+            .foregroundStyle(selected ? Color.white : .secondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background {
+                if selected {
+                    Capsule().fill(Color.accentColor)
+                        .matchedGeometryEffect(id: "categoryPill", in: categoryNS)
+                } else {
+                    Capsule().fill(Color.primary.opacity(0.06))
+                }
+            }
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
     private var accessibilityBanner: some View {
         Banner(
             symbol: "exclamationmark.triangle.fill",
@@ -168,13 +222,11 @@ struct PanelView: View {
                 .font(.system(size: 30, weight: .regular))
                 .foregroundStyle(.secondary)
                 .frame(width: 64, height: 64)
-                .background(
-                    Circle().fill(Color.primary.opacity(0.05))
-                )
+                .background(Circle().fill(Color.primary.opacity(0.05)))
             VStack(spacing: Theme.Space.xs) {
                 Text(model.query.isEmpty ? "还没有记录" : "没有匹配结果")
                     .font(.system(size: 14, weight: .semibold))
-                Text(model.query.isEmpty ? "复制任意文本，或添加一条常用的快捷回复。" : "换个关键词试试。")
+                Text(model.query.isEmpty ? "复制文本或图片，也可以添加一条常用的快捷回复。" : "换个关键词或分类试试。")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -197,20 +249,26 @@ struct PanelView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 2) {
-                    ForEach(model.items) { item in
+                    ForEach(Array(model.items.enumerated()), id: \.element.id) { pair in
                         ItemRow(
-                            item: item,
-                            isSelected: item.id == model.selectedID,
-                            onPaste: { onPaste(item) },
-                            onSelect: { model.selectedID = item.id },
-                            onTogglePin: { model.togglePin(item) },
-                            onDelete: { model.delete(item) }
+                            item: pair.element,
+                            index: pair.offset,
+                            isSelected: pair.element.id == model.selectedID,
+                            onPaste: { onPaste(pair.element) },
+                            onSelect: { model.selectedID = pair.element.id },
+                            onTogglePin: { model.togglePin(pair.element) },
+                            onDelete: { model.delete(pair.element) }
                         )
-                        .id(item.id)
+                        .id(pair.element.id)
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .move(edge: .top)),
+                            removal: .opacity
+                        ))
                     }
                 }
                 .padding(.horizontal, Theme.Space.sm)
                 .padding(.vertical, Theme.Space.sm)
+                .animation(.easeInOut(duration: 0.18), value: model.items)
             }
             .onChange(of: model.selectedID) { _, id in
                 guard let id else { return }
@@ -225,7 +283,7 @@ struct PanelView: View {
         HStack(spacing: Theme.Space.md) {
             ShortcutHint(keys: "↑↓", label: "选择")
             ShortcutHint(keys: "↵", label: "粘贴")
-            ShortcutHint(keys: "⌥⌫", label: "删除")
+            ShortcutHint(keys: "⌘1–9", label: "快速")
             Spacer()
             Button { model.page = .composer } label: {
                 Label("添加回复", systemImage: "plus")
@@ -295,6 +353,7 @@ private struct Banner: View {
 
 private struct ItemRow: View {
     let item: ClipItem
+    let index: Int
     let isSelected: Bool
     var onPaste: () -> Void
     var onSelect: () -> Void
@@ -304,39 +363,16 @@ private struct ItemRow: View {
     @State private var hovering = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: Theme.Space.md) {
-            KindGlyph(symbol: glyphSymbol, tint: glyphTint)
-
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(item.displayTitle)
-                        .font(.system(size: 13, weight: .semibold))
-                        .lineLimit(1)
-                    if item.isPinned {
-                        Badge(text: "置顶", tint: .orange)
-                    }
-                    if item.kind == .snippet {
-                        Badge(text: "回复")
-                    }
-                }
-                Text(item.body)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+        HStack(alignment: .top, spacing: Theme.Space.sm) {
+            if index < 9 {
+                DigitChip(number: index + 1)
+                    .padding(.top, 3)
             }
-
+            leadingArt
+            content
             Spacer(minLength: Theme.Space.sm)
-
             if hovering || isSelected {
-                HStack(spacing: 2) {
-                    IconButton(
-                        symbol: item.isPinned ? "pin.slash" : "pin",
-                        help: item.isPinned ? "取消置顶" : "置顶",
-                        action: onTogglePin
-                    )
-                    IconButton(symbol: "trash", help: "删除", role: .destructive, action: onDelete)
-                }
-                .transition(.opacity)
+                trailingActions.transition(.opacity)
             }
         }
         .padding(.horizontal, Theme.Space.md)
@@ -365,6 +401,48 @@ private struct ItemRow: View {
         }
     }
 
+    @ViewBuilder
+    private var leadingArt: some View {
+        if item.contentType == .image, let data = item.imageData {
+            Thumbnail(data: data)
+        } else {
+            KindGlyph(symbol: glyphSymbol, tint: glyphTint)
+        }
+    }
+
+    private var content: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Text(item.displayTitle)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                if item.isPinned {
+                    Badge(text: "置顶", tint: .orange)
+                }
+                if item.kind == .snippet {
+                    Badge(text: "回复")
+                } else if item.contentType == .link {
+                    Badge(text: "链接", filled: false)
+                }
+            }
+            Text(item.body)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+        }
+    }
+
+    private var trailingActions: some View {
+        HStack(spacing: 2) {
+            IconButton(
+                symbol: item.isPinned ? "pin.slash" : "pin",
+                help: item.isPinned ? "取消置顶" : "置顶",
+                action: onTogglePin
+            )
+            IconButton(symbol: "trash", help: "删除", role: .destructive, action: onDelete)
+        }
+    }
+
     private var background: Color {
         if isSelected { return Theme.rowSelected }
         if hovering { return Theme.rowHover }
@@ -372,11 +450,58 @@ private struct ItemRow: View {
     }
 
     private var glyphSymbol: String {
-        item.kind == .snippet ? "text.bubble.fill" : "doc.on.clipboard.fill"
+        switch item.category {
+        case .link: return "link"
+        case .snippet: return "text.bubble.fill"
+        case .image: return "photo"
+        case .text: return "doc.on.clipboard.fill"
+        }
     }
 
     private var glyphTint: Color {
         if item.isPinned { return .orange }
-        return item.kind == .snippet ? .accentColor : .secondary
+        switch item.category {
+        case .link, .snippet: return .accentColor
+        default: return .secondary
+        }
+    }
+}
+
+private struct DigitChip: View {
+    let number: Int
+
+    var body: some View {
+        Text("\(number)")
+            .font(.system(size: 10, weight: .bold, design: .rounded))
+            .foregroundStyle(.secondary)
+            .frame(width: 16, height: 16)
+            .background(
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Color.primary.opacity(0.06))
+            )
+    }
+}
+
+private struct Thumbnail: View {
+    let data: Data
+
+    var body: some View {
+        Group {
+            if let image = NSImage(data: data) {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                Image(systemName: "photo")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .frame(width: 34, height: 34)
+        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .stroke(Theme.hairline, lineWidth: 1)
+        )
     }
 }
