@@ -1,0 +1,4 @@
+{
+  "name": "ClipHistory (Linux core + tests)",
+  "install": "./scripts/cloud-agent-install.sh"
+}
