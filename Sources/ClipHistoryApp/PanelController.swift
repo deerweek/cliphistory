@@ -27,12 +27,17 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.settingsModel = SettingsModel(settings: settings)
         panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 440, height: 560),
-            styleMask: [.titled, .closable, .resizable, .nonactivatingPanel],
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
         super.init()
         panel.title = "剪贴板记录"
+        // Chromeless floating look: let the material content fill the full
+        // height under a transparent, text-less title bar. PanelView reserves a
+        // top inset so content never sits under the traffic-light buttons.
+        panel.titlebarAppearsTransparent = true
+        panel.titleVisibility = .hidden
         panel.isFloatingPanel = true
         panel.level = .floating
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
