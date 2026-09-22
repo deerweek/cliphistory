@@ -40,10 +40,13 @@ struct PanelView: View {
         }
         .padding(.top, Self.titlebarInset)
         .frame(minWidth: 460, minHeight: 560)
-        .background(.regularMaterial)
+        .background(.regularMaterial.opacity(panelTheme.opacity))
         .onChange(of: model.page) { _, page in
             onPageChange(page)
         }
+        // Propagate the chosen accent to native controls as well as custom
+        // pills and selection highlights.
+        .tint(panelTheme.accent)
         .environment(\.clipHistoryTheme, panelTheme)
     }
 

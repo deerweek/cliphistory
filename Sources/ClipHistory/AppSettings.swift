@@ -39,6 +39,45 @@ public enum HotkeyCombo: String, CaseIterable, Sendable {
     }
 }
 
+/// Accent used by the panel's visual theme.
+///
+/// The value is stored as a string in `UserDefaults` so adding a new accent
+/// remains backwards compatible with existing installations.
+public enum PanelAccent: String, CaseIterable, Sendable {
+    case system
+    case blue
+    case purple
+    case green
+    case orange
+    case pink
+
+    public var title: String {
+        switch self {
+        case .system: return "系统"
+        case .blue: return "蓝色"
+        case .purple: return "紫色"
+        case .green: return "绿色"
+        case .orange: return "橙色"
+        case .pink: return "粉色"
+        }
+    }
+}
+
+/// Controls how much content is shown in each history row.
+public enum PanelDensity: String, CaseIterable, Sendable {
+    case compact
+    case comfortable
+    case spacious
+
+    public var title: String {
+        switch self {
+        case .compact: return "紧凑"
+        case .comfortable: return "舒适"
+        case .spacious: return "宽松"
+        }
+    }
+}
+
 public final class AppSettings: @unchecked Sendable {
     public static let shared = AppSettings()
 
@@ -46,6 +85,7 @@ public final class AppSettings: @unchecked Sendable {
     private let lock = NSLock()
 
     public static let defaultMaxHistoryCount = 200
+    public static let defaultPanelOpacity = 0.92
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -122,6 +162,55 @@ public final class AppSettings: @unchecked Sendable {
         }
     }
 
+    public var panelAccent: PanelAccent {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            let raw = defaults.string(forKey: Keys.panelAccent) ?? PanelAccent.system.rawValue
+            return PanelAccent(rawValue: raw) ?? .system
+        }
+        set {
+            lock.lock()
+            defer { lock.unlock() }
+            defaults.set(newValue.rawValue, forKey: Keys.panelAccent)
+        }
+    }
+
+    public var panelDensity: PanelDensity {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            let raw = defaults.string(forKey: Keys.panelDensity) ?? PanelDensity.comfortable.rawValue
+            return PanelDensity(rawValue: raw) ?? .comfortable
+        }
+        set {
+            lock.lock()
+            defer { lock.unlock() }
+            defaults.set(newValue.rawValue, forKey: Keys.panelDensity)
+        }
+    }
+
+    /// Panel opacity in the inclusive range 0.55...1.0.
+    ///
+    /// Older versions did not persist this value, so a missing or invalid
+    /// value falls back to the current default. Clamping on both read and
+    /// write keeps preferences safe even if they are edited externally.
+    public var panelOpacity: Double {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            guard let value = defaults.object(forKey: Keys.panelOpacity) as? NSNumber else {
+                return Self.defaultPanelOpacity
+            }
+            return Self.clampPanelOpacity(value.doubleValue)
+        }
+        set {
+            lock.lock()
+            defer { lock.unlock() }
+            defaults.set(Self.clampPanelOpacity(newValue), forKey: Keys.panelOpacity)
+        }
+    }
+
     public var launchAtLogin: Bool {
         get {
             lock.lock()
@@ -152,5 +241,13 @@ public final class AppSettings: @unchecked Sendable {
         static let launchAtLogin = "launchAtLogin"
         static let panelMode = "panelMode"
         static let attachedBundleID = "attachedBundleID"
+        static let panelAccent = "panelAccent"
+        static let panelDensity = "panelDensity"
+        static let panelOpacity = "panelOpacity"
+    }
+
+    private static func clampPanelOpacity(_ value: Double) -> Double {
+        guard value.isFinite else { return defaultPanelOpacity }
+        return min(1.0, max(0.55, value))
     }
 }
