@@ -1,34 +1,119 @@
 # 剪贴板记录 · ClipHistory
 
-一个轻量、注重隐私的 **macOS 菜单栏剪贴板历史工具**。自动记录你复制过的文本、链接和图片，随时用快捷键呼出面板，选一条即可粘贴到当前应用；还能把常用语句存成「快捷回复」。所有数据只保存在本机。
+<p align="center">
+  <strong>找回你复制过的每一段内容，并把它送回刚才的应用。</strong>
+  <br>
+  一款轻量、隐私优先的 macOS 菜单栏剪贴板历史工具。
+</p>
 
-> 界面为中文本地化，应用名显示为「剪贴板记录」。
+<p align="center">
+  <a href="https://github.com/deerweek/cliphistory/releases/latest">下载最新版</a> ·
+  <a href="https://github.com/deerweek/cliphistory/issues">报告问题</a> ·
+  <a href="https://github.com/deerweek/cliphistory/releases">查看版本</a>
+</p>
 
-## 功能特性
+<p align="center">
+  <img src="https://img.shields.io/badge/macOS-14%2B-111111?logo=apple" alt="macOS 14+">
+  <img src="https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white" alt="Swift 6">
+  <img src="https://img.shields.io/badge/Apple%20Silicon-arm64-2674F2?logo=apple&logoColor=white" alt="Apple Silicon arm64">
+  <img src="https://img.shields.io/badge/data-local%20only-2E8B57" alt="Local data only">
+</p>
 
-- **自动记录** 复制的内容，并按时间倒序展示，重复内容自动去重并置顶。
-- **内容分类**：自动识别 **文本 / 链接 / 图片**，配合 **快捷回复** 共四类，顶部分类栏可一键筛选（带数量）。
-- **图片支持**：捕获剪贴板中的图片（截图、网页图片等），本地存储并显示缩略图，按字节去重；粘贴时原样写回。
-- **快捷回复**：把常用文字（地址、话术等）保存为可复用条目，与历史记录分开管理。
-- **键盘优先**：呼出面板后用 `↑/↓` 选择、`↵` 粘贴，`⌘1–9` 直接粘贴第 N 条；当然也支持鼠标点击。
-- **置顶与搜索**：重要条目可置顶，支持按标题/正文搜索。
-- **面板显示方式**：粘贴后关闭 / 始终置顶 / 吸附到指定应用窗口。
-- **自动清理**：按条数或天数清理历史；置顶项与快捷回复不会被清理。
-- **精致且克制的动效**：分类切换滑动高亮、列表增删过渡、选中项自动滚动居中。
-- **隐私优先**：数据仅存本机 SQLite；自动跳过密码管理器等标记为敏感的剪贴板内容。
+剪贴板记录常驻菜单栏，自动保存复制过的文本、链接和图片。按下快捷键呼出面板，搜索或选择一条记录后，应用会尝试把它粘贴回打开面板前的聊天框、编辑器或浏览器。常用内容还可以保存成快捷回复，反复使用。
 
-## 系统要求
+## 你可以用它做什么
 
-- macOS 14 (Sonoma) 及以上
-- 构建需要 Xcode / Command Line Tools（含 Swift 6 工具链）
+- **找回历史**：自动记录文本、链接和图片；置顶项优先，快捷回复随后，普通历史按更新时间倒序；重复内容会自动去重并更新时间。
+- **快速筛选**：按文本、链接、图片或快捷回复分类，也可以搜索标题和正文。
+- **直接粘贴**：用鼠标点击、`↑/↓` + `↵`，或 `⌘1–9` 选择内容；应用会把内容写回系统剪贴板，并向目标应用发送 `⌘V`。
+- **快捷回复**：把地址、客服话术、代码片段等保存成有标题的常用内容。
+- **三种面板模式**：粘贴后关闭、始终置顶、吸附到指定应用窗口。
+- **吸附跟随**：吸附模式会跟随目标应用的主窗口移动，面板按目标窗口层级显示；切换到其他应用后，其他窗口可以覆盖它。
+- **置顶与清理**：重要内容可以置顶；历史可按条数或保存天数自动清理，置顶项和快捷回复不会被清理。
+- **菜单栏常驻**：支持登录时启动，默认快捷键为 `⌘D`，也可以改为 `⇧⌘D` 或 `⇧⌘V`。
 
-## 预编译下载
+> 当前 Release 提供 Apple Silicon（arm64）构建，最低支持 macOS 14 Sonoma。
 
-Apple Silicon Mac 可直接从 [GitHub Releases](https://github.com/deerweek/cliphistory/releases/latest) 下载 `ClipHistory-macos-arm64` 压缩包。首次运行仍需在 **系统设置 → 隐私与安全性 → 辅助功能** 中授权应用。
+## 30 秒开始使用
 
-## 安装与运行
+### 直接下载
 
-克隆仓库后，在 macOS 上运行打包脚本：
+1. 打开 [GitHub Releases](https://github.com/deerweek/cliphistory/releases/latest)，下载 `ClipHistory-macos-arm64-*.zip`。
+2. 解压，把 `剪贴板记录.app` 放入 `~/Applications/`，然后启动它。
+3. 第一次启动时，打开 **系统设置 → 隐私与安全性 → 辅助功能**，勾选当前运行的这份 `剪贴板记录.app`。
+4. 复制一段文本，按 `⌘D` 呼出面板，选择记录并按回车。
+
+### 辅助功能权限
+
+辅助功能权限用于两件事：把选中的内容自动粘贴到目标应用，以及在“吸附到应用”模式下读取目标窗口的位置。请授权设置页中显示的**当前运行路径**，默认路径是：
+
+```text
+~/Applications/剪贴板记录.app
+```
+
+macOS 会把不同路径下的同名应用当作不同副本。请不要同时运行桌面、下载目录和 `~/Applications` 中的多个副本；如果重新移动了应用，需要在辅助功能列表中重新勾选新路径对应的那一份。
+
+没有辅助功能权限时，选择记录仍然会把内容写入系统剪贴板，但应用不会自动发送 `⌘V`；你可以在目标输入框中手动粘贴。设置页会显示授权状态、实际路径和当前版本，也提供打开系统设置、在 Finder 中定位应用和重新启动的按钮。
+
+### 自动粘贴的目标
+
+面板打开时，应用会先记住当时位于前台的其他应用。选择记录时，它会尝试把内容粘贴回这个应用；如果目标已经退出、没有可用窗口，或应用无法安全识别目标，则内容仍会留在系统剪贴板中，供手动粘贴。
+
+## 常用快捷键
+
+| 操作 | 快捷键 |
+| --- | --- |
+| 呼出 / 收起面板 | `⌘D`（默认） |
+| 上下选择 | `↑` / `↓` |
+| 粘贴选中内容 | `↵` |
+| 快速粘贴前 1–9 条 | `⌘1`–`⌘9` |
+| 删除选中条目 | `⌥⌫` |
+| 置顶 / 取消置顶 | `⌥P` |
+| 返回 / 收起 | `Esc` |
+
+面板搜索框默认聚焦，因此数字键会输入搜索词；快速粘贴请使用 `⌘` + 数字。
+
+## 内容与限制
+
+- 文本最多保存 200,000 个字符。
+- 图片会转换为 PNG 保存，单张图片超过 12 MB 时跳过记录。
+- 当剪贴板同时包含文本和图片时，优先记录非空文本；只有没有可用文本时才记录图片。
+- 链接包括常见的网页链接、邮箱地址、`ftp` / `mailto` 等链接形式。
+- 被密码管理器标记为隐藏、瞬态或敏感的剪贴板内容会自动跳过。
+
+## 隐私设计
+
+- 应用运行时不联网，不上传剪贴板内容，也不依赖云服务。
+- 历史和图片只保存在本机 SQLite 数据库：
+
+  ```text
+  ~/Library/Application Support/剪贴板记录/history.sqlite
+  ```
+
+- 自动粘贴使用当前应用的辅助功能权限，把选中内容写入系统剪贴板后向目标进程发送 `⌘V`。
+- 不需要权限也可以查看、搜索和管理历史，只是需要手动完成最后一次粘贴。
+
+## 从源码构建
+
+### 环境要求
+
+- macOS 14 Sonoma 或更高版本
+- Xcode Command Line Tools
+- Swift 6 工具链
+
+当前构建脚本默认生成 Apple Silicon arm64 应用。如果要在 Intel Mac 上构建，可以覆盖目标架构：
+
+```bash
+TARGET=x86_64-apple-macos14.0 ./scripts/package-app.sh
+```
+
+如果本机 SDK 路径与脚本默认值不同，也可以同时指定 SDK：
+
+```bash
+SDKROOT="$(xcrun --sdk macosx --show-sdk-path)" ./scripts/package-app.sh
+```
+
+### 编译并安装
 
 ```bash
 git clone https://github.com/deerweek/cliphistory.git
@@ -36,75 +121,63 @@ cd cliphistory
 ./scripts/package-app.sh
 ```
 
-脚本会编译并把 `剪贴板记录.app` 安装到 `~/Applications/`，默认使用不需要证书或钥匙串权限的 ad-hoc 签名，并嵌入稳定的 Bundle ID designated requirement，因此同一路径重新编译后不会因为可执行文件 hash 变化而丢失辅助功能授权。首次启动后，请到 **系统设置 → 隐私与安全性 → 辅助功能** 勾选当前运行的这一份应用，这样选中条目才能自动粘贴（`⌘V`）。设置页会显示当前应用的实际路径，并可在 Finder 中定位它；旧版或其他目录里的同名应用授权不会自动套用。如果你有开发者签名，可通过 `CLIPHISTORY_CODESIGN_IDENTITY` 指定签名身份。
+脚本会编译、签名并安装到：
 
-如果系统阻止脚本覆盖旧应用，可以先在 Finder 里删除旧的「剪贴板记录」，或者使用 `CLIPHISTORY_INSTALL_DEST=/自定义路径 ./scripts/package-app.sh`。只想生成应用而不安装时，使用 `CLIPHISTORY_SKIP_INSTALL=1 ./scripts/package-app.sh`。
-
-也可以直接用 Swift Package Manager 构建可执行文件：
-
-```bash
-swift build            # 需要 macOS（依赖 AppKit / SwiftUI 等系统框架）
+```text
+~/Applications/剪贴板记录.app
 ```
 
-## 使用说明
+默认使用本地 ad-hoc 签名，不需要开发者证书或钥匙串权限；签名中包含稳定的 Bundle ID designated requirement，因此同一路径重新编译后不会仅因可执行文件 hash 变化而丢失辅助功能授权。如果你有开发者签名，可以指定：
 
-- 用快捷键呼出面板（默认 `⌘D`，可在设置里改成 `⇧⌘D` 或 `⇧⌘V`）。
-- 输入关键字可搜索；顶部分类栏可按 文本 / 链接 / 图片 / 快捷回复 筛选。
-- 选中一条后按 `↵` 或直接点击即可粘贴到之前的应用。
+```bash
+CLIPHISTORY_CODESIGN_IDENTITY="你的签名身份" ./scripts/package-app.sh
+```
 
-### 快捷键
+只生成 `.app` 而不安装：
 
-| 快捷键 | 作用 |
-| --- | --- |
-| `⌘D`（默认） | 呼出 / 收起面板 |
-| `↑` / `↓` | 上下选择条目 |
-| `↵` | 粘贴选中条目 |
-| `⌘1`–`⌘9` | 直接粘贴列表中第 1–9 条 |
-| `⌥⌫` | 删除选中条目 |
-| `⌥P` | 置顶 / 取消置顶 |
-| `Esc` | 返回上一页 / 收起面板 |
+```bash
+CLIPHISTORY_SKIP_INSTALL=1 ./scripts/package-app.sh
+```
 
-> 说明：面板搜索框始终聚焦，纯数字键会被当作搜索输入，因此快速粘贴使用 `⌘ + 数字`。
+如果脚本无法覆盖旧应用，可以先在 Finder 中删除旧的「剪贴板记录」，或者指定完整的安装目标路径：
 
-## 隐私
+```bash
+CLIPHISTORY_INSTALL_DEST="/自定义目录/剪贴板记录.app" ./scripts/package-app.sh
+```
 
-- 所有记录保存在本地 SQLite 数据库：`~/Library/Application Support/剪贴板记录/history.sqlite`。
-- 不联网、不上传任何内容。
-- 自动忽略被标记为敏感/瞬态的剪贴板类型（如 1Password 等密码管理器）。
+### 运行测试
+
+核心库是平台无关的，macOS 和 Linux 都可以运行核心测试；菜单栏界面依赖 AppKit / SwiftUI，只能在 macOS 上构建和运行。
+
+```bash
+./scripts/run-tests.sh          # macOS，完整核心测试
+./scripts/run-tests-linux.sh   # Linux，仅核心库测试
+```
 
 ## 项目结构
 
-```
-Package.swift                 SwiftPM 配置
+```text
+Package.swift
 Sources/
-  ClipHistory/                跨平台核心库（存储、分类、去重、面板定位）
-  CSQLite/                    Linux 上的 SQLite 系统模块映射
-  ClipHistoryApp/             macOS 应用（AppKit + SwiftUI 面板、剪贴板监听、粘贴、快捷键）
-Tests/ClipHistoryTests/       核心库单元测试
+  ClipHistory/                 平台无关核心：模型、SQLite、分类、去重、清理、布局算法
+  CSQLite/                     Linux 的 SQLite 系统模块映射
+  ClipHistoryApp/              macOS 菜单栏应用、SwiftUI 面板、监听、粘贴和快捷键
+Tests/ClipHistoryTests/         核心库测试
 scripts/
-  package-app.sh              编译 + 签名 + 安装到 ~/Applications（macOS）
-  run-tests.sh                运行单元测试（macOS）
-  run-tests-linux.sh          在 Linux 上运行核心库单元测试
+  package-app.sh               编译、签名并安装 macOS 应用
+  signing.sh                   本地签名逻辑
+  run-tests.sh                 macOS 测试
+  run-tests-linux.sh           Linux 核心测试
 ```
 
-## 开发与测试
+## 下载与版本
 
-核心库 `ClipHistory`（数据模型、内容分类、存储与去重、面板定位算法）是**平台无关**的，可在 macOS 或 Linux 上编译并测试；GUI 部分 `ClipHistoryApp` 依赖 Apple 框架，只能在 macOS 构建/运行。
-
-- macOS 上运行测试：
-
-  ```bash
-  ./scripts/run-tests.sh
-  ```
-
-- Linux 上运行核心库测试（本仓库已配置 Cursor Cloud Agent 环境 `.cursor/environment.json`，会自动安装 Swift 工具链）：
-
-  ```bash
-  ./scripts/run-tests-linux.sh
-  ```
-
-跨平台做法：`Database.swift` / `PanelPlacement.swift` 通过 `#if canImport(...)` 条件导入，`Package.swift` 仅在 Linux 依赖 `CSQLite` 模块映射，从而在两端都能构建核心库。
+- [下载最新版](https://github.com/deerweek/cliphistory/releases/latest)
+- [查看全部 Releases](https://github.com/deerweek/cliphistory/releases)
+- 当前稳定版：**v1.0.3**
+- 当前预编译包：**Apple Silicon / arm64**
+- 每个应用压缩包旁边提供 SHA-256 校验文件
 
 ## 许可证
 
-尚未指定许可证。如需开源分发，请在仓库根目录添加合适的 `LICENSE` 文件。
+当前仓库尚未指定开源许可证。明确添加 `LICENSE` 文件前，请不要将项目标记为 MIT、Apache-2.0 或其他开源许可证。
