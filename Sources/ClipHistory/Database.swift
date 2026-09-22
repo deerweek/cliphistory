@@ -1,11 +1,16 @@
 import Foundation
+#if canImport(SQLite3)
 import SQLite3
+#else
+import CSQLite
+#endif
 
 enum SQLiteValue: Equatable {
     case null
     case int(Int64)
     case double(Double)
     case text(String)
+    case blob(Data)
 }
 
 final class Database {
@@ -78,6 +83,14 @@ final class Database {
                 status = sqlite3_bind_double(statement, slot, number)
             case .text(let text):
                 status = sqlite3_bind_text(statement, slot, text, -1, SQLITE_TRANSIENT)
+            case .blob(let data):
+                if data.isEmpty {
+                    status = sqlite3_bind_zeroblob(statement, slot, 0)
+                } else {
+                    status = data.withUnsafeBytes { raw in
+                        sqlite3_bind_blob(statement, slot, raw.baseAddress, Int32(data.count), SQLITE_TRANSIENT)
+                    }
+                }
             }
             guard status == SQLITE_OK else {
                 throw StoreError.executeFailed(errorMessage())
@@ -98,6 +111,12 @@ final class Database {
                     return .text(String(cString: pointer))
                 }
                 return .null
+            case SQLITE_BLOB:
+                if let pointer = sqlite3_column_blob(statement, column) {
+                    let count = Int(sqlite3_column_bytes(statement, column))
+                    return .blob(Data(bytes: pointer, count: count))
+                }
+                return .blob(Data())
             default:
                 return .null
             }
