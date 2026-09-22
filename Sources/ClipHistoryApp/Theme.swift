@@ -2,6 +2,70 @@ import SwiftUI
 
 /// Shared visual language for the panel. Keeping tokens in one place makes the
 /// UI feel cohesive ("high-end") while staying easy to tune.
+
+// MARK: - User appearance
+
+/// User-adjustable appearance values passed through the SwiftUI environment.
+/// Keeping these values in one context lets every row update immediately when
+/// the settings page changes accent or density.
+struct PanelThemeContext {
+    let accent: Color
+    let density: PanelDensity
+    let opacity: Double
+
+    static var `default`: PanelThemeContext {
+        PanelThemeContext(accent: .accentColor, density: .comfortable, opacity: 0.92)
+    }
+
+    var spacingScale: CGFloat {
+        switch density {
+        case .compact: return 0.78
+        case .comfortable: return 1.0
+        case .spacious: return 1.24
+        }
+    }
+
+    func spacing(_ base: CGFloat) -> CGFloat {
+        (base * spacingScale).rounded()
+    }
+
+    var rowVerticalPadding: CGFloat {
+        switch density {
+        case .compact: return 5
+        case .comfortable: return 8
+        case .spacious: return 12
+        }
+    }
+
+    var rowBodyLineLimit: Int { density == .spacious ? 3 : 2 }
+
+    var selectedFill: Color { accent.opacity(0.16) }
+}
+
+private struct PanelThemeEnvironmentKey: EnvironmentKey {
+    static let defaultValue = PanelThemeContext.default
+}
+
+extension EnvironmentValues {
+    var clipHistoryTheme: PanelThemeContext {
+        get { self[PanelThemeEnvironmentKey.self] }
+        set { self[PanelThemeEnvironmentKey.self] = newValue }
+    }
+}
+
+extension PanelAccent {
+    var color: Color {
+        switch self {
+        case .system: return .accentColor
+        case .blue: return .blue
+        case .purple: return .purple
+        case .green: return .green
+        case .orange: return .orange
+        case .pink: return .pink
+        }
+    }
+}
+
 enum Theme {
     enum Radius {
         static let window: CGFloat = 12
@@ -52,18 +116,23 @@ struct KindGlyph: View {
 
 /// Small capsule tag (e.g. "回复", "置顶").
 struct Badge: View {
+    @Environment(\.clipHistoryTheme) private var theme
+
     let text: String
-    var tint: Color = .accentColor
+    /// Pass a tint for semantic badges (for example, the orange pinned tag).
+    /// Leaving it nil follows the user-selected panel accent.
+    var tint: Color? = nil
     var filled: Bool = true
 
     var body: some View {
+        let resolvedTint = tint ?? theme.accent
         Text(text)
             .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(filled ? tint : .secondary)
+            .foregroundStyle(filled ? resolvedTint : .secondary)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(
-                Capsule().fill(filled ? tint.opacity(0.16) : Color.primary.opacity(0.06))
+                Capsule().fill(filled ? resolvedTint.opacity(0.16) : Color.primary.opacity(0.06))
             )
     }
 }

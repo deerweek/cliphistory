@@ -23,7 +23,8 @@ enum StoreTests {
             ("图片字节可完整读回", testImageBytesRoundTrip),
             ("按分类筛选", testItemsFilterByCategory),
             ("分类计数", testCategoryCounts),
-            ("分类归属推导", testCategoryDerivation)
+            ("分类归属推导", testCategoryDerivation),
+            ("外观设置可持久化并限制透明度", testAppearanceSettingsPersistAndClamp)
         ]
 
         var failed = 0
@@ -43,6 +44,32 @@ enum StoreTests {
         }
         print("全部测试通过")
     }
+}
+
+private func testAppearanceSettingsPersistAndClamp() throws {
+    let suiteName = "ClipHistoryTests-Settings-\(UUID().uuidString)"
+    guard let defaults = UserDefaults(suiteName: suiteName) else {
+        throw Expectation(description: "无法创建测试偏好域")
+    }
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+
+    let settings = AppSettings(defaults: defaults)
+    try expectEqual(settings.panelAccent, .system)
+    try expectEqual(settings.panelDensity, .comfortable)
+    try expectEqual(settings.panelOpacity, AppSettings.defaultPanelOpacity)
+
+    settings.panelAccent = .purple
+    settings.panelDensity = .compact
+    settings.panelOpacity = 0.73
+    let reloaded = AppSettings(defaults: defaults)
+    try expectEqual(reloaded.panelAccent, .purple)
+    try expectEqual(reloaded.panelDensity, .compact)
+    try expectEqual(reloaded.panelOpacity, 0.73)
+
+    reloaded.panelOpacity = 0.1
+    try expectEqual(reloaded.panelOpacity, 0.55)
+    reloaded.panelOpacity = 2
+    try expectEqual(reloaded.panelOpacity, 1.0)
 }
 
 private struct Expectation: Error, CustomStringConvertible {

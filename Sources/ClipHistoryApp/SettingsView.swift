@@ -29,6 +29,15 @@ final class SettingsModel: ObservableObject {
     @Published var attachedBundleID: String {
         didSet { persistAttachedApp() }
     }
+    @Published var panelAccent: PanelAccent {
+        didSet { persistPanelAccent() }
+    }
+    @Published var panelDensity: PanelDensity {
+        didSet { persistPanelDensity() }
+    }
+    @Published var panelOpacity: Double {
+        didSet { persistPanelOpacity() }
+    }
     @Published var appChoices: [KnownApp] = []
     @Published var accessibilityTrusted = false
     @Published var accessibilityMessage = ""
@@ -47,6 +56,9 @@ final class SettingsModel: ObservableObject {
         launchAtLogin = settings.launchAtLogin
         panelMode = settings.panelMode
         attachedBundleID = settings.attachedBundleID
+        panelAccent = settings.panelAccent
+        panelDensity = settings.panelDensity
+        panelOpacity = settings.panelOpacity
         refreshAccess()
         appChoices = KnownApps.choices(including: attachedBundleID)
         isReady = true
@@ -97,6 +109,24 @@ final class SettingsModel: ObservableObject {
         settings.attachedBundleID = attachedBundleID
         onDisplayChange?()
     }
+
+    private func persistPanelAccent() {
+        guard isReady else { return }
+        settings.panelAccent = panelAccent
+        onDisplayChange?()
+    }
+
+    private func persistPanelDensity() {
+        guard isReady else { return }
+        settings.panelDensity = panelDensity
+        onDisplayChange?()
+    }
+
+    private func persistPanelOpacity() {
+        guard isReady else { return }
+        settings.panelOpacity = panelOpacity
+        onDisplayChange?()
+    }
 }
 
 struct SettingsView: View {
@@ -127,6 +157,40 @@ struct SettingsView: View {
                 }
             } header: {
                 sectionHeader("面板", "rectangle.on.rectangle")
+            }
+
+            Section {
+                Picker("强调色", selection: $model.panelAccent) {
+                    ForEach(PanelAccent.allCases, id: \.self) { accent in
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(accent.color)
+                                .frame(width: 10, height: 10)
+                            Text(accent.title)
+                        }
+                        .tag(accent)
+                    }
+                }
+                Picker("内容密度", selection: $model.panelDensity) {
+                    ForEach(PanelDensity.allCases, id: \.self) { density in
+                        Text(density.title).tag(density)
+                    }
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("面板透明度")
+                        Spacer()
+                        Text("\(Int((model.panelOpacity * 100).rounded()))%")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                    Slider(value: $model.panelOpacity, in: 0.55...1.0, step: 0.01)
+                }
+                Text("透明度只影响窗口背景，不会改变文字和按钮的清晰度。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                sectionHeader("外观", "paintbrush.pointed")
             }
 
             Section {

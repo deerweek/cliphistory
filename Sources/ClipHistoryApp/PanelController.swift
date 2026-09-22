@@ -42,6 +42,12 @@ final class PanelController: NSObject, NSWindowDelegate {
         // top inset so content never sits under the traffic-light buttons.
         panel.titlebarAppearsTransparent = true
         panel.titleVisibility = .hidden
+        // Let the SwiftUI material provide the translucent surface. Keeping
+        // the window itself clear preserves crisp text and controls while the
+        // user changes the panel background opacity.
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.alphaValue = 1
         panel.isFloatingPanel = true
         panel.level = .floating
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
@@ -139,6 +145,7 @@ final class PanelController: NSObject, NSWindowDelegate {
             userDismissed = false
         }
         applyLevel()
+        applyAppearance()
         switch settings.panelMode {
         case .dismissAfterPaste:
             stopFollowing()
@@ -256,6 +263,15 @@ final class PanelController: NSObject, NSWindowDelegate {
             return
         }
         show(page: model.page, makeKey: makeKey)
+    }
+
+    private func applyAppearance() {
+        // Opacity is applied to the SwiftUI material, not the whole NSPanel.
+        // Keep the window fully opaque at the AppKit level so text and controls
+        // remain readable at lower background opacity values.
+        panel.alphaValue = 1
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
     }
 
     private func applyLevel() {
