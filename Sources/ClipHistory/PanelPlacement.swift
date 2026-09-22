@@ -1,4 +1,10 @@
+#if canImport(CoreGraphics)
 import CoreGraphics
+#else
+// CoreGraphics is unavailable on Linux; Foundation provides the CG* geometry
+// types (CGFloat/CGPoint/CGSize/CGRect) used below.
+import Foundation
+#endif
 
 public enum PanelPlacement {
     /// Puts the panel on the right of a target window, top-aligned.

@@ -16,7 +16,14 @@ enum StoreTests {
             ("展示标题优先用自定义标题", testDisplayTitlePrefersCustomTitle),
             ("面板优先贴在目标窗口右侧", testSnapPrefersRightOfTarget),
             ("右侧放不下时贴到左侧", testSnapMovesToLeftWhenRightSideIsBlocked),
-            ("贴边时不超出屏幕", testSnapClampsInsideScreen)
+            ("贴边时不超出屏幕", testSnapClampsInsideScreen),
+            ("链接识别", testLinkClassification),
+            ("记录链接会标为链接类型", testRecordHistoryTagsLinks),
+            ("记录图片并去重", testRecordImageStoresAndDeduplicates),
+            ("图片字节可完整读回", testImageBytesRoundTrip),
+            ("按分类筛选", testItemsFilterByCategory),
+            ("分类计数", testCategoryCounts),
+            ("分类归属推导", testCategoryDerivation)
         ]
 
         var failed = 0
@@ -219,4 +226,114 @@ private func testSnapClampsInsideScreen() throws {
     try expect(origin.y >= 0, "不应超出屏幕下沿")
     try expect(origin.x >= 0, "不应超出屏幕左沿")
     try expect(origin.x + 100 <= 800, "不应超出屏幕右沿")
+}
+
+private func testLinkClassification() throws {
+    let links = [
+        "https://example.com",
+        "http://example.com/path?q=1",
+        "https://github.com/deerweek/cliphistory",
+        "github.com",
+        "example.co.uk/a/b",
+        "mailto:hi@example.com"
+    ]
+    for link in links {
+        try expectEqual(ContentClassifier.classify(link), .link)
+    }
+    let notLinks = [
+        "普通的一段文字",
+        "hello world",
+        "看看 https://example.com 这个",   // 含空格，不是纯链接
+        "just.a.sentence with spaces",
+        "file",
+        "3.14"                              // TLD 必须是字母
+    ]
+    for text in notLinks {
+        try expectEqual(ContentClassifier.classify(text), .text)
+    }
+}
+
+private func testRecordHistoryTagsLinks() throws {
+    try withStore { store in
+        let link = try store.recordHistory("https://example.com")
+        let text = try store.recordHistory("只是一句话")
+        try expectEqual(link.contentType, .link)
+        try expectEqual(link.category, .link)
+        try expectEqual(text.contentType, .text)
+        try expectEqual(text.category, .text)
+    }
+}
+
+private func testRecordImageStoresAndDeduplicates() throws {
+    try withStore { store in
+        let png = Data([0x89, 0x50, 0x4E, 0x47, 0x01, 0x02, 0x03])
+        let first = try store.recordImage(png, width: 800, height: 600, now: Date(timeIntervalSince1970: 1))
+        try expectEqual(first.contentType, .image)
+        try expectEqual(first.category, .image)
+        try expectEqual(first.displayTitle, "图片 · 800×600")
+
+        _ = try store.recordHistory("中间", now: Date(timeIntervalSince1970: 2))
+        let again = try store.recordImage(png, width: 800, height: 600, now: Date(timeIntervalSince1970: 3))
+        try expectEqual(again.id, first.id)
+
+        let items = try store.items()
+        try expectEqual(items.count, 2)
+        try expectEqual(items.first?.id, first.id)
+    }
+}
+
+private func testImageBytesRoundTrip() throws {
+    try withStore { store in
+        let png = Data((0..<256).map { UInt8($0 & 0xFF) })
+        let saved = try store.recordImage(png, width: 1, height: 1)
+        let fetched = try store.items(category: .image).first
+        try expectEqual(fetched?.imageData, png)
+        try expectEqual(saved.imageData, png)
+    }
+}
+
+private func testItemsFilterByCategory() throws {
+    try withStore { store in
+        _ = try store.recordHistory("纯文本", now: Date(timeIntervalSince1970: 1))
+        _ = try store.recordHistory("https://example.com", now: Date(timeIntervalSince1970: 2))
+        _ = try store.addSnippet(title: "回复", body: "你好", now: Date(timeIntervalSince1970: 3))
+        _ = try store.recordImage(Data([1, 2, 3]), width: 10, height: 10, now: Date(timeIntervalSince1970: 4))
+
+        try expectEqual(try store.items(category: .text).map(\.body), ["纯文本"])
+        try expectEqual(try store.items(category: .link).map(\.body), ["https://example.com"])
+        try expectEqual(try store.items(category: .snippet).map(\.body), ["你好"])
+        try expectEqual(try store.items(category: .image).count, 1)
+        try expectEqual(try store.items().count, 4)
+    }
+}
+
+private func testCategoryCounts() throws {
+    try withStore { store in
+        _ = try store.recordHistory("文本一")
+        _ = try store.recordHistory("文本二")
+        _ = try store.recordHistory("https://a.com")
+        _ = try store.addSnippet(title: nil, body: "回复内容")
+        _ = try store.recordImage(Data([9]), width: 4, height: 4)
+
+        let counts = try store.categoryCounts()
+        try expectEqual(counts[.text], 2)
+        try expectEqual(counts[.link], 1)
+        try expectEqual(counts[.snippet], 1)
+        try expectEqual(counts[.image], 1)
+    }
+}
+
+private func testCategoryDerivation() throws {
+    let image = ClipItem(id: 1, kind: .history, contentType: .image, body: "图片",
+                         title: nil, isPinned: false, createdAt: Date(), updatedAt: Date())
+    let snippetLink = ClipItem(id: 2, kind: .snippet, contentType: .link, body: "https://x.com",
+                               title: nil, isPinned: false, createdAt: Date(), updatedAt: Date())
+    let link = ClipItem(id: 3, kind: .history, contentType: .link, body: "https://x.com",
+                        title: nil, isPinned: false, createdAt: Date(), updatedAt: Date())
+    let text = ClipItem(id: 4, kind: .history, contentType: .text, body: "hi",
+                        title: nil, isPinned: false, createdAt: Date(), updatedAt: Date())
+    try expectEqual(image.category, .image)
+    try expectEqual(snippetLink.category, .snippet)
+    try expectEqual(link.category, .link)
+    try expectEqual(text.category, .text)
 }

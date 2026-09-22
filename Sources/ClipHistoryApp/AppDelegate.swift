@@ -13,9 +13,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panelController: PanelController!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if handOffToInstalledCopy() {
-            return
-        }
         closeOtherCopies()
         settings = AppSettings.shared
         do {
@@ -56,40 +53,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         rebuildMenu()
         panelController.applyDisplayMode()
-        if !PasteService.isTrusted(prompt: false) {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                _ = PasteService.isTrusted(prompt: true)
-            }
-        }
-    }
-
-    private func handOffToInstalledCopy() -> Bool {
-        let installed = Self.installedAppURL.standardizedFileURL
-        let current = Bundle.main.bundleURL.standardizedFileURL
-        guard current != installed else { return false }
-        guard FileManager.default.fileExists(atPath: installed.path) else { return false }
-        let config = NSWorkspace.OpenConfiguration()
-        config.createsNewApplicationInstance = true
-        NSWorkspace.shared.openApplication(at: installed, configuration: config) { _, _ in
-            DispatchQueue.main.async {
-                NSApp.terminate(nil)
-            }
-        }
-        return true
     }
 
     private func closeOtherCopies() {
         let ownPID = ProcessInfo.processInfo.processIdentifier
         for app in NSRunningApplication.runningApplications(withBundleIdentifier: "local.cliphistory") {
-            if app.processIdentifier != ownPID {
-                app.terminate()
+            guard app.processIdentifier != ownPID else { continue }
+            // There must be exactly one running copy.  Leaving an older
+            // bundle alive is especially confusing for a menu-bar app: its
+            // status item remains visible and its Accessibility checkbox can
+            // look enabled while the newly launched copy is the one handling
+            // the paste.  The copy launched most recently owns this session.
+            if !app.terminate() {
+                app.forceTerminate()
             }
         }
-    }
-
-    static var installedAppURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Applications/剪贴板记录.app", isDirectory: true)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

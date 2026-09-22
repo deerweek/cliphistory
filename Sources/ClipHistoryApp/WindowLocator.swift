@@ -2,22 +2,39 @@ import AppKit
 import ApplicationServices
 
 enum WindowLocator {
+    /// The window we use as the anchor for attached mode.  `windowNumber` is
+    /// the CoreGraphics window id, which can also be passed to
+    /// `NSWindow.order(_:relativeTo:)` even though the window belongs to
+    /// another application.
+    struct MainWindow {
+        let frame: NSRect
+        let windowNumber: CGWindowID?
+    }
+
     /// Largest normal window of the app, in AppKit coordinates (origin at bottom-left).
     static func mainWindowFrame(bundleID: String) -> NSRect? {
+        mainWindow(bundleID: bundleID)?.frame
+    }
+
+    /// Returns the largest normal window and, when available, its CG window id.
+    /// The id lets an attached panel be ordered directly above the target
+    /// window while remaining at the target application's normal window level.
+    static func mainWindow(bundleID: String) -> MainWindow? {
         guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first else {
             return nil
         }
-        if let frame = cgWindowFrame(pid: app.processIdentifier) {
-            return frame
+        if let window = cgMainWindow(pid: app.processIdentifier) {
+            return window
         }
-        return axWindowFrame(pid: app.processIdentifier)
+        guard let frame = axWindowFrame(pid: app.processIdentifier) else { return nil }
+        return MainWindow(frame: frame, windowNumber: nil)
     }
 
-    private static func cgWindowFrame(pid: pid_t) -> NSRect? {
+    private static func cgMainWindow(pid: pid_t) -> MainWindow? {
         guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
             return nil
         }
-        let frames: [CGRect] = list.compactMap { info in
+        let windows: [(frame: CGRect, windowNumber: CGWindowID)] = list.compactMap { info in
             let owner = (info[kCGWindowOwnerPID as String] as? NSNumber)?.intValue ?? -1
             guard owner == Int(pid) else { return nil }
             let layer = (info[kCGWindowLayer as String] as? NSNumber)?.intValue ?? 0
@@ -25,12 +42,18 @@ enum WindowLocator {
             guard let rect = cgRect(info[kCGWindowBounds as String]), rect.width >= 240, rect.height >= 160 else {
                 return nil
             }
-            return rect
+            guard let number = (info[kCGWindowNumber as String] as? NSNumber).map({ CGWindowID($0.uint32Value) }) else {
+                return nil
+            }
+            return (rect, number)
         }
-        guard let largest = frames.max(by: { $0.width * $0.height < $1.width * $1.height }) else {
+        guard let largest = windows.max(by: { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }) else {
             return nil
         }
-        return appKitRect(fromTopLeft: largest)
+        return MainWindow(
+            frame: appKitRect(fromTopLeft: largest.frame),
+            windowNumber: largest.windowNumber
+        )
     }
 
     private static func cgRect(_ value: Any?) -> CGRect? {

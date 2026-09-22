@@ -31,6 +31,7 @@ final class SettingsModel: ObservableObject {
     }
     @Published var appChoices: [KnownApp] = []
     @Published var accessibilityTrusted = false
+    @Published var accessibilityMessage = ""
     @Published var launchMessage: String?
 
     private let settings: AppSettings
@@ -46,13 +47,15 @@ final class SettingsModel: ObservableObject {
         launchAtLogin = settings.launchAtLogin
         panelMode = settings.panelMode
         attachedBundleID = settings.attachedBundleID
-        accessibilityTrusted = PasteService.isTrusted(prompt: false)
+        refreshAccess()
         appChoices = KnownApps.choices(including: attachedBundleID)
         isReady = true
     }
 
     func refreshAccess() {
-        accessibilityTrusted = PasteService.isTrusted(prompt: false)
+        let status = PasteService.AccessibilityStatus.current
+        accessibilityTrusted = status.trusted
+        accessibilityMessage = status.message
     }
 
     func refreshApps() {
@@ -101,7 +104,7 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("面板") {
+            Section {
                 Picker("显示方式", selection: $model.panelMode) {
                     ForEach(PanelMode.allCases, id: \.self) { mode in
                         Text(mode.title).tag(mode)
@@ -122,9 +125,11 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+            } header: {
+                sectionHeader("面板", "rectangle.on.rectangle")
             }
 
-            Section("快捷键") {
+            Section {
                 Picker("弹出面板", selection: $model.hotkey) {
                     ForEach(HotkeyCombo.allCases, id: \.self) { combo in
                         Text(combo.menuLabel).tag(combo)
@@ -133,9 +138,11 @@ struct SettingsView: View {
                 Text("⌘D 会占用访达的“制作副本”。需要避开时改用 ⇧⌘D 或 ⇧⌘V。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            } header: {
+                sectionHeader("快捷键", "command")
             }
 
-            Section("自动清理") {
+            Section {
                 Picker("最多保留历史", selection: $model.maxHistoryCount) {
                     ForEach([50, 100, 200, 500, 1000], id: \.self) { count in
                         Text("\(count) 条").tag(count)
@@ -151,37 +158,54 @@ struct SettingsView: View {
                 Text("置顶项和快捷回复不会被自动删除。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            } header: {
+                sectionHeader("自动清理", "sparkles")
             }
 
-            Section("启动") {
+            Section {
                 Toggle("登录时启动", isOn: $model.launchAtLogin)
                 if let launchMessage = model.launchMessage {
                     Text(launchMessage)
                         .font(.caption)
                         .foregroundStyle(.red)
                 }
+            } header: {
+                sectionHeader("启动", "power")
             }
 
-            Section("辅助功能") {
-                LabeledContent("状态", value: model.accessibilityTrusted ? "已授权" : "未授权")
-                Text("现在只运行「应用程序」里的这一份。如果列表里有两个「剪贴板记录」，打开路径在应用程序文件夹里的那个，然后点重新启动。")
+            Section {
+                LabeledContent("状态") {
+                    StatusPill(ok: model.accessibilityTrusted)
+                }
+                Text("请在系统设置里勾选下面路径对应的这一份应用。旧版本或其他位置的“剪贴板记录”授权不会自动套用到当前副本。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Text(model.accessibilityMessage)
+                    .font(.caption)
+                    .foregroundStyle(model.accessibilityTrusted ? .green : .orange)
                 Text(Bundle.main.bundlePath)
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .textSelection(.enabled)
+                Text("版本 \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "未知") · PID \(ProcessInfo.processInfo.processIdentifier)")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
                 HStack {
                     Button("打开系统设置") {
-                        _ = PasteService.isTrusted(prompt: true)
-                        PasteService.openAccessibilitySettings()
+                        PasteService.requestAccessibilityAccess()
+                    }
+                    Button("在 Finder 中显示") {
+                        PasteService.revealCurrentApplication()
                     }
                     if !model.accessibilityTrusted {
                         Button("重新启动") {
                             PasteService.relaunch()
                         }
+                        .buttonStyle(.borderedProminent)
                     }
                 }
+            } header: {
+                sectionHeader("辅助功能", "accessibility")
             }
         }
         .formStyle(.grouped)
@@ -192,5 +216,31 @@ struct SettingsView: View {
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
             model.refreshAccess()
         }
+    }
+
+    private func sectionHeader(_ title: String, _ symbol: String) -> some View {
+        Label(title, systemImage: symbol)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundStyle(.secondary)
+    }
+}
+
+private struct StatusPill: View {
+    let ok: Bool
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle()
+                .fill(ok ? Color.green : Color.orange)
+                .frame(width: 7, height: 7)
+            Text(ok ? "已授权" : "未授权")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(ok ? Color.green : Color.orange)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(
+            Capsule().fill((ok ? Color.green : Color.orange).opacity(0.14))
+        )
     }
 }

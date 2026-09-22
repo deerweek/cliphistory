@@ -15,6 +15,10 @@ final class PanelController: NSObject, NSWindowDelegate {
     private var followedBundleID = ""
     private var userDismissed = false
     private var appliedMode: PanelMode?
+    /// Destination captured before the panel takes focus.  Looking up the
+    /// frontmost application at row-click time can return this app instead of
+    /// the chat/editor where the user actually wants the paste.
+    private var pasteTarget: NSRunningApplication?
 
     var isVisible: Bool { panel.isVisible }
     var onHotkeyChange: ((HotkeyCombo) -> Void)?
@@ -27,12 +31,17 @@ final class PanelController: NSObject, NSWindowDelegate {
         self.settingsModel = SettingsModel(settings: settings)
         panel = NSPanel(
             contentRect: NSRect(x: 0, y: 0, width: 440, height: 560),
-            styleMask: [.titled, .closable, .resizable, .nonactivatingPanel],
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
         super.init()
         panel.title = "剪贴板记录"
+        // Chromeless floating look: let the material content fill the full
+        // height under a transparent, text-less title bar. PanelView reserves a
+        // top inset so content never sits under the traffic-light buttons.
+        panel.titlebarAppearsTransparent = true
+        panel.titleVisibility = .hidden
         panel.isFloatingPanel = true
         panel.level = .floating
         panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
@@ -67,9 +76,16 @@ final class PanelController: NSObject, NSWindowDelegate {
         panel.contentView = NSHostingView(rootView: root)
     }
 
-    func show(page: PanelPage = .list, makeKey: Bool = true) {
+    func show(page: PanelPage = .list, makeKey: Bool = true, capturePasteTarget: Bool = true) {
+        if page == .list, capturePasteTarget {
+            // Capture before makeKeyAndOrderFront/NSApp.activate below.
+            // In attached mode the configured app is a stronger signal than
+            // whatever happened to be frontmost while opening the menu.
+            pasteTarget = preferredPasteTarget() ?? pasteService.capturePasteTarget()
+        }
         model.page = page
         if page == .list {
+            model.category = nil
             model.query = ""
             model.reload()
         }
@@ -97,6 +113,10 @@ final class PanelController: NSObject, NSWindowDelegate {
         stopFollowing()
         panel.orderOut(nil)
         removeKeyMonitor()
+        // The panel is a non-activating window, but AppKit can leave this
+        // accessory process as the active application for one run-loop turn.
+        // Explicitly relinquish activation before the target receives ⌘V.
+        NSApp.deactivate()
     }
 
     func toggleFromHotkey() {
@@ -149,11 +169,34 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     func paste(_ item: ClipItem) {
-        let preferred = preferredPasteTarget()
-        if settings.panelMode == .dismissAfterPaste {
+        // Use the process captured when the panel opened.  If the user opened
+        // the panel from an attached-app mode, preferredPasteTarget() remains
+        // a fallback for the case where that app restarted between opening
+        // and selecting an item.
+        let captured = pasteTarget.flatMap { $0.isTerminated ? nil : $0 }
+        let preferred = captured ?? preferredPasteTarget() ?? pasteService.capturePasteTarget()
+        pasteTarget = nil
+        let restorePanel = settings.panelMode != .dismissAfterPaste
+        if restorePanel {
+            temporarilyHideForPaste()
+        } else {
             hide()
         }
-        pasteService.paste(item.body, preferredApp: preferred)
+        if item.contentType == .image, let data = item.imageData {
+            pasteService.pasteImage(data, preferredApp: preferred)
+        } else {
+            pasteService.paste(item.body, preferredApp: preferred)
+        }
+        if restorePanel {
+            // PasteService waits for the destination to activate and may retry
+            // for about a second. Restore afterwards so the panel never steals
+            // the destination's key window before ⌘V is delivered.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                guard let self, !self.userDismissed,
+                      self.settings.panelMode != .dismissAfterPaste else { return }
+                self.show(page: .list, makeKey: false, capturePasteTarget: false)
+            }
+        }
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -196,9 +239,20 @@ final class PanelController: NSObject, NSWindowDelegate {
         return NSRunningApplication.runningApplications(withBundleIdentifier: settings.attachedBundleID).first
     }
 
+    private func temporarilyHideForPaste() {
+        stopFollowing()
+        panel.orderOut(nil)
+        removeKeyMonitor()
+        NSApp.deactivate()
+    }
+
     private func ensureVisible(makeKey: Bool) {
         if panel.isVisible {
-            panel.orderFrontRegardless()
+            if settings.panelMode == .attachedToApp {
+                followAttachedWindow()
+            } else {
+                panel.orderFrontRegardless()
+            }
             return
         }
         show(page: model.page, makeKey: makeKey)
@@ -207,14 +261,20 @@ final class PanelController: NSObject, NSWindowDelegate {
     private func applyLevel() {
         switch settings.panelMode {
         case .dismissAfterPaste:
+            panel.isFloatingPanel = true
             panel.level = .floating
             panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         case .alwaysOnTop:
+            panel.isFloatingPanel = true
             panel.level = Self.topLevel
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         case .attachedToApp:
-            panel.level = Self.topLevel
-            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            // An attached panel belongs to the target application's normal
+            // window stack. The old assistiveTechHighWindow level and
+            // canJoinAllSpaces made it float above every other app.
+            panel.isFloatingPanel = false
+            panel.level = .normal
+            panel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary]
         }
     }
 
@@ -253,15 +313,15 @@ final class PanelController: NSObject, NSWindowDelegate {
             return
         }
         let name = KnownApps.displayName(for: bundleID)
-        guard let target = WindowLocator.mainWindowFrame(bundleID: bundleID),
-              let screen = screen(containing: target) else {
+        guard let target = WindowLocator.mainWindow(bundleID: bundleID),
+              let screen = screen(containing: target.frame) else {
             model.attachStatus = "\(name) 没有打开，或还没允许辅助功能"
             return
         }
         model.attachStatus = "吸附在\(name)旁边"
         let ideal = PanelPlacement.snappedOrigin(
             panel: panel.frame.size,
-            target: target,
+            target: target.frame,
             screen: screen.visibleFrame
         )
         let desired = PanelPlacement.clampedOrigin(
@@ -270,11 +330,25 @@ final class PanelController: NSObject, NSWindowDelegate {
             screen: screen.visibleFrame
         )
         let current = panel.frame.origin
-        guard abs(current.x - desired.x) > 1 || abs(current.y - desired.y) > 1 else { return }
-        adjustingFrame = true
-        panel.setFrameOrigin(desired)
-        adjustingFrame = false
-        panel.orderFrontRegardless()
+        if abs(current.x - desired.x) > 1 || abs(current.y - desired.y) > 1 {
+            adjustingFrame = true
+            panel.setFrameOrigin(desired)
+            adjustingFrame = false
+        }
+        orderAttachedPanel(above: target.windowNumber)
+    }
+
+    /// Keep the panel immediately above the configured app's main window,
+    /// while leaving windows from other applications above it. A CG window
+    /// id is unavailable when the Accessibility fallback is used, in which
+    /// case normal-level ordering still gives the expected app-scoped stack.
+    private func orderAttachedPanel(above windowNumber: CGWindowID?) {
+        guard settings.panelMode == .attachedToApp else { return }
+        if let windowNumber {
+            panel.order(.above, relativeTo: Int(windowNumber))
+        } else {
+            panel.orderFront(nil)
+        }
     }
 
     private func screen(containing rect: NSRect) -> NSScreen? {
@@ -301,6 +375,13 @@ final class PanelController: NSObject, NSWindowDelegate {
             return nil
         }
         guard model.page == .list else { return event }
+        // ⌘1–9 pastes the Nth visible item directly (no mouse needed).
+        if event.modifierFlags.contains(.command), let index = Self.digitIndex(for: event.keyCode) {
+            if index < model.items.count {
+                paste(model.items[index])
+                return nil
+            }
+        }
         switch event.keyCode {
         case 36, 76:
             if let item = model.selectedItem {
@@ -337,4 +418,20 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     private static let topLevel = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.assistiveTechHighWindow)))
+
+    /// Maps a number-row key code (1–9) to a 0-based list index.
+    private static func digitIndex(for keyCode: UInt16) -> Int? {
+        switch keyCode {
+        case 18: return 0
+        case 19: return 1
+        case 20: return 2
+        case 21: return 3
+        case 23: return 4
+        case 22: return 5
+        case 26: return 6
+        case 28: return 7
+        case 25: return 8
+        default: return nil
+        }
+    }
 }
