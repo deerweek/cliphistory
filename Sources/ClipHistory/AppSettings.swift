@@ -115,6 +115,22 @@ public final class AppSettings: @unchecked Sendable {
         }
     }
 
+    public var autoCaptureScreenshots: Bool {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            if defaults.object(forKey: Keys.autoCaptureScreenshots) == nil {
+                return true
+            }
+            return defaults.bool(forKey: Keys.autoCaptureScreenshots)
+        }
+        set {
+            lock.lock()
+            defer { lock.unlock() }
+            defaults.set(newValue, forKey: Keys.autoCaptureScreenshots)
+        }
+    }
+
     public var excludedBundleIDs: [String] {
         get {
             lock.lock()
@@ -427,6 +443,7 @@ public final class AppSettings: @unchecked Sendable {
         static let aiModelName = "aiModelName"
         static let actions = "clipActions"
         static let isRecordingPaused = "isRecordingPaused"
+        static let autoCaptureScreenshots = "autoCaptureScreenshots"
         static let excludedBundleIDs = "excludedBundleIDs"
     }
 

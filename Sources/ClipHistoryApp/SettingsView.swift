@@ -100,6 +100,12 @@ final class SettingsModel: ObservableObject {
             onPauseStateChange?(isRecordingPaused)
         }
     }
+    @Published var autoCaptureScreenshots: Bool {
+        didSet {
+            guard isReady else { return }
+            settings.autoCaptureScreenshots = autoCaptureScreenshots
+        }
+    }
     @Published var excludedBundleIDs: [String] {
         didSet {
             guard isReady else { return }
@@ -140,6 +146,7 @@ final class SettingsModel: ObservableObject {
         aiModelName = settings.aiModelName
         actions = settings.actions
         isRecordingPaused = settings.isRecordingPaused
+        autoCaptureScreenshots = settings.autoCaptureScreenshots
         excludedBundleIDs = settings.excludedBundleIDs
         refreshAccess()
         appChoices = KnownApps.choices(including: attachedBundleID)
@@ -299,6 +306,7 @@ struct SettingsView: View {
             }
 
             Section {
+                Toggle("自动收录系统截屏（按 ⇧⌘3 / ⇧⌘4 截屏后无需手动复制，自动进入历史并识别文字）", isOn: $model.autoCaptureScreenshots)
                 Toggle("暂停记录剪贴板（复制密码或敏感内容时开启）", isOn: $model.isRecordingPaused)
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
