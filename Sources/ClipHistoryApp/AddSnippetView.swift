@@ -62,9 +62,14 @@ struct AddSnippetView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.md) {
             HStack(alignment: .center, spacing: Theme.Space.md) {
+                KindGlyph(
+                    symbol: editingItem == nil ? "plus.bubble.fill" : (isImageItem ? "photo.badge.plus" : "slider.horizontal.3"),
+                    tint: theme.accent,
+                    size: 36
+                )
                 VStack(alignment: .leading, spacing: 2) {
                     Text(editingItem == nil ? "新建快捷回复" : (isImageItem ? "编辑图片备注" : "编辑条目与触发码"))
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 14, weight: .bold))
                     Text("设置触发短码（如 ;dz）后，在任意应用打字敲出短码即可自动展开上屏。")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
@@ -79,6 +84,15 @@ struct AddSnippetView: View {
                     .frame(width: 164)
                 }
             }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.Radius.container, style: .continuous)
+                    .fill(Theme.cardSurface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.Radius.container, style: .continuous)
+                            .strokeBorder(Theme.specularStroke, lineWidth: 0.75)
+                    )
+            )
 
             HStack(spacing: Theme.Space.md) {
                 field(title: "自定义标题", subtitle: "可选 · 用于快速检索") {

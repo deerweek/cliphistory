@@ -336,7 +336,7 @@ struct SettingsView: View {
                     )
                 }
             } header: {
-                sectionHeader("隐私保护与敏感应用过滤", "lock.shield")
+                sectionHeader("隐私保护与敏感应用过滤", "lock.shield.fill", tint: .green)
             }
 
             Section {
@@ -359,7 +359,7 @@ struct SettingsView: View {
                 }
                 Toggle("开启右侧实时预览与动作分栏（⌘Y）", isOn: $model.showPreviewPane)
             } header: {
-                sectionHeader("面板与布局", "rectangle.split.2x1")
+                sectionHeader("面板与布局", "rectangle.split.2x1.fill", tint: .blue)
             }
 
             Section {
@@ -378,7 +378,7 @@ struct SettingsView: View {
                         .foregroundStyle(.red)
                 }
             } header: {
-                sectionHeader("快捷键与启动", "command")
+                sectionHeader("快捷键与启动", "command", tint: .indigo)
             }
 
             Section {
@@ -409,7 +409,7 @@ struct SettingsView: View {
                     Slider(value: $model.panelOpacity, in: 0.55...1.0, step: 0.01)
                 }
             } header: {
-                sectionHeader("外观", "paintbrush.pointed")
+                sectionHeader("外观与质感", "paintbrush.pointed.fill", tint: .pink)
             }
 
             Section {
@@ -453,7 +453,7 @@ struct SettingsView: View {
                     }
                 }
             } header: {
-                sectionHeader("自动清理与数据备份", "sparkles")
+                sectionHeader("自动清理与数据备份", "externaldrive.fill.badge.timemachine", tint: .orange)
             }
 
             Section {
@@ -532,7 +532,7 @@ struct SettingsView: View {
                     .font(.system(size: 11, design: .monospaced))
                 }
             } header: {
-                sectionHeader("智能决策 (Jev) · 翻译与输入法联动", "bolt.badge.clock")
+                sectionHeader("智能决策 (Jev) · 翻译与输入法联动", "sparkles", tint: .purple)
             }
 
             if model.accessibilityTrusted {
@@ -540,6 +540,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
         .onAppear {
             model.refreshAccess()
             model.refreshApps()
@@ -619,14 +620,18 @@ struct SettingsView: View {
                 }
             }
         } header: {
-            sectionHeader("辅助功能权限", "accessibility")
+            sectionHeader("辅助功能权限", "figure.wave.circle.fill", tint: .teal)
         }
     }
 
-    private func sectionHeader(_ title: String, _ symbol: String) -> some View {
-        Label(title, systemImage: symbol)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.secondary)
+    private func sectionHeader(_ title: String, _ symbol: String, tint: Color = .accentColor) -> some View {
+        HStack(spacing: 7) {
+            SettingsSectionIcon(symbol: symbol, tint: tint, size: 20)
+            Text(title)
+                .font(.system(size: 12.5, weight: .semibold))
+                .foregroundStyle(.primary)
+        }
+        .padding(.bottom, 2)
     }
 }
 
@@ -658,21 +663,28 @@ private struct FlowExcludedAppsView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 ForEach(bundleIDs, id: \.self) { id in
-                    HStack(spacing: 4) {
+                    HStack(spacing: 5) {
+                        if let icon = ThumbnailCache.shared.appIcon(forSourceApp: id) {
+                            Image(nsImage: icon)
+                                .resizable()
+                                .interpolation(.high)
+                                .frame(width: 13, height: 13)
+                        }
                         Text(KnownApps.displayName(for: id))
                             .font(.system(size: 11, weight: .medium))
                         Button {
                             onRemove(id)
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 10))
+                                .font(.system(size: 10.5))
                                 .foregroundStyle(.tertiary)
                         }
                         .buttonStyle(.plain)
                     }
                     .padding(.horizontal, 8)
-                    .padding(.vertical, 3.5)
-                    .background(Capsule().fill(Color.primary.opacity(0.06)))
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.primary.opacity(0.055)))
+                    .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
                 }
             }
         }

@@ -36,16 +36,17 @@ struct ActionStudioView: View {
                 headerBanner
 
                 VStack(alignment: .leading, spacing: Theme.Space.sm) {
-                    HStack {
-                        Label("已安装动作插件（在右侧预览栏显示）", systemImage: "puzzlepiece.extension.fill")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.secondary)
+                    HStack(spacing: 7) {
+                        SettingsSectionIcon(symbol: "puzzlepiece.extension.fill", tint: .blue, size: 20)
+                        Text("已安装动作插件（在右侧预览坞显示）")
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundStyle(.primary)
                         Spacer()
                         Button("恢复默认") {
                             settingsModel.resetDefaultActions()
                             onToast("已恢复默认动作列表")
                         }
-                        .font(.system(size: 11))
+                        .font(.system(size: 11, weight: .medium))
                         .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
                     }
@@ -55,18 +56,27 @@ struct ActionStudioView: View {
                             actionRow(action: $action)
                         }
                     }
+                    .padding(10)
+                    .background(
+                        RoundedRectangle(cornerRadius: Theme.Radius.container, style: .continuous)
+                            .fill(Theme.cardSurface)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: Theme.Radius.container, style: .continuous)
+                                    .strokeBorder(Theme.specularStroke, lineWidth: 0.75)
+                            )
+                    )
                 }
 
-                Divider().overlay(Theme.hairline)
-
                 VStack(alignment: .leading, spacing: Theme.Space.md) {
-                    HStack {
-                        Label(
-                            editingActionID == nil ? "自由添加新动作" : "编辑自定义动作",
-                            systemImage: editingActionID == nil ? "plus.circle.fill" : "pencil.circle.fill"
+                    HStack(spacing: 7) {
+                        SettingsSectionIcon(
+                            symbol: editingActionID == nil ? "plus.circle.fill" : "pencil.circle.fill",
+                            tint: .purple,
+                            size: 20
                         )
-                        .font(.system(size: 12.5, weight: .semibold))
-                        .foregroundStyle(theme.accent)
+                        Text(editingActionID == nil ? "自由添加新动作" : "编辑自定义动作")
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundStyle(.primary)
 
                         Spacer()
                         if editingActionID != nil {
