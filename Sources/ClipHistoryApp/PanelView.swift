@@ -1230,24 +1230,50 @@ private struct InspectorPane: View {
     }
 
     private func linkPreviewCard(item: ClipItem) -> some View {
-        HStack(spacing: 10) {
-            KindGlyph(symbol: "globe", tint: theme.accent, size: 32)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.linkHost ?? "网页链接")
-                    .font(.system(size: 12, weight: .semibold))
-                Text("可直接在默认浏览器中访问")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.secondary)
+        let targetURL = item.extractedURL ?? item.body
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                KindGlyph(symbol: "globe", tint: theme.accent, size: 32)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.linkHost ?? "网页链接")
+                        .font(.system(size: 12, weight: .semibold))
+                    Text(item.hasEmbeddedURLWithExtraText ? targetURL : "可直接在默认浏览器中访问")
+                        .font(.system(size: 10.5, design: item.hasEmbeddedURLWithExtraText ? .monospaced : .default))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                Spacer()
+                if item.hasEmbeddedURLWithExtraText {
+                    Button {
+                        onCopyRawText(targetURL)
+                    } label: {
+                        Text("仅复制链接")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .help("去除前后文字，仅复制纯链接地址")
+
+                    Button {
+                        onPasteRawText(targetURL, item.id)
+                    } label: {
+                        Text("仅粘贴链接")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .help("去除前后文字，仅粘贴纯链接地址")
+                }
+                Button {
+                    openURLString(targetURL)
+                } label: {
+                    Label("打开链接", systemImage: "arrow.up.right.square")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             }
-            Spacer()
-            Button {
-                openURLString(item.body)
-            } label: {
-                Label("打开链接", systemImage: "arrow.up.right.square")
-                    .font(.system(size: 11, weight: .medium))
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
         }
         .padding(10)
         .background(

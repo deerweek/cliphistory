@@ -200,6 +200,17 @@ public struct ClipItem: Identifiable, Equatable, Sendable {
         contentType == .link ? ContentClassifier.extractHost(body) : nil
     }
 
+    /// Clean URL extracted from `body` (handles both pure URLs and share messages with prefix/suffix text).
+    public var extractedURL: String? {
+        ContentClassifier.extractURL(body)
+    }
+
+    /// True when `body` contains surrounding text in addition to `extractedURL`.
+    public var hasEmbeddedURLWithExtraText: Bool {
+        guard let url = extractedURL else { return false }
+        return url != body.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// For image items, the first line of `body` holds the dimensions label (e.g. "图片 · 800×600"),
     /// while subsequent lines (if any) hold Vision OCR recognized text.
     public var imageDimensionsLabel: String {

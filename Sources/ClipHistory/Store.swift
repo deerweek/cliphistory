@@ -70,13 +70,24 @@ public final class Store: @unchecked Sendable {
         if !existing.contains("trigger_code") {
             try database.execute("ALTER TABLE items ADD COLUMN trigger_code TEXT")
         }
-        try database.execute(
+        let textCandidates = try database.query(
             """
-            UPDATE items SET content_type = 'link'
+            SELECT id, body FROM items
             WHERE content_type = 'text'
-              AND (lower(body) LIKE 'http://%' OR lower(body) LIKE 'https://%')
+              AND (lower(body) LIKE '%http://%' OR lower(body) LIKE '%https://%' OR lower(body) LIKE '%www.%' OR body LIKE '%.%')
             """
         )
+        for row in textCandidates {
+            if row.count >= 2,
+               case .int(let id) = row[0],
+               case .text(let body) = row[1],
+               ContentClassifier.classify(body) == .link {
+                try database.execute(
+                    "UPDATE items SET content_type = 'link' WHERE id = ?",
+                    [.int(id)]
+                )
+            }
+        }
     }
 
     @discardableResult

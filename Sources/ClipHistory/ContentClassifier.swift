@@ -34,23 +34,87 @@ public enum ContentClassifier {
         return .general
     }
 
-    /// True when the whole string is a single URL / bare domain (no spaces).
+    /// True when the string is a URL/domain or a share message containing an embedded URL.
     public static func isLink(_ raw: String) -> Bool {
         let s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !s.isEmpty, s.count <= 2048 else { return false }
-        guard !s.contains(where: { $0.isWhitespace || $0.isNewline }) else { return false }
 
-        let lower = s.lowercased()
-        for scheme in ["http://", "https://", "ftp://", "mailto:"] where lower.hasPrefix(scheme) {
-            return true
+        // If the entire string has no spaces, check direct scheme or bare domain
+        if !s.contains(where: { $0.isWhitespace || $0.isNewline }) {
+            let lower = s.lowercased()
+            for scheme in ["http://", "https://", "ftp://", "mailto:"] where lower.hasPrefix(scheme) {
+                return true
+            }
+            if looksLikeBareDomain(s) {
+                return true
+            }
         }
-        return looksLikeBareDomain(s)
+
+        // If the text has prefix/suffix words (e.g. "【分享】https://example.com 点击查看"),
+        // recognize it as a link as long as it is not source code / shell commands.
+        let lineCount = s.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline).count
+        guard s.count <= 800, lineCount <= 8, !isCodeLike(s) else { return false }
+        return extractURL(s) != nil
+    }
+
+    /// Extracts the first valid URL (or bare domain) from `raw`, even when surrounded by Chinese or English share text.
+    public static func extractURL(_ raw: String) -> String? {
+        let s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !s.isEmpty, s.count <= 2048 else { return nil }
+
+        // 1. Fast path for pure single-token URL or bare domain
+        if !s.contains(where: { $0.isWhitespace || $0.isNewline }) {
+            let lower = s.lowercased()
+            for scheme in ["http://", "https://", "ftp://", "mailto:"] where lower.hasPrefix(scheme) {
+                return trimTrailingURLPunctuation(s)
+            }
+            if looksLikeBareDomain(s) {
+                return s
+            }
+        }
+
+        // 2. Match explicit scheme URL (`http://`, `https://`, `ftp://`, `mailto:`) embedded anywhere in text
+        let schemePattern = #"(?i)(?:https?://|ftp://|mailto:)[A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=%]+"#
+        if let regex = try? NSRegularExpression(pattern: schemePattern),
+           let match = regex.firstMatch(in: s, range: NSRange(s.startIndex..<s.endIndex, in: s)),
+           let range = Range(match.range, in: s) {
+            let candidate = trimTrailingURLPunctuation(String(s[range]))
+            if candidate.count > 8 {
+                return candidate
+            }
+        }
+
+        // 3. Match `www.` or common bare domain embedded in short share text
+        let domainPattern = #"(?i)(?<![A-Za-z0-9@/])(?:www\.[A-Za-z0-9\-]+\.[A-Za-z]{2,}|[A-Za-z0-9\-]+\.(?:com|cn|net|org|io|dev|ai|app|me|co|tv|cc|uk|jp|hk|tw|edu|gov)(?:\.[A-Za-z]{2,})?)(?:/[A-Za-z0-9\-._~:/?#\[\]@!$&()*+,;=%]*)?"#
+        if let regex = try? NSRegularExpression(pattern: domainPattern),
+           let match = regex.firstMatch(in: s, range: NSRange(s.startIndex..<s.endIndex, in: s)),
+           let range = Range(match.range, in: s) {
+            let candidate = trimTrailingURLPunctuation(String(s[range]))
+            if looksLikeBareDomain(candidate) {
+                return candidate
+            }
+        }
+
+        return nil
+    }
+
+    private static func trimTrailingURLPunctuation(_ url: String) -> String {
+        let trailingChars = Set(".,;:!?'\"’”)>】」》")
+        var result = url
+        while let last = result.last, trailingChars.contains(last) {
+            if last == ")" {
+                let openCount = result.filter { $0 == "(" }.count
+                let closeCount = result.filter { $0 == ")" }.count
+                if closeCount <= openCount { break }
+            }
+            result.removeLast()
+        }
+        return result
     }
 
     /// Extracts a readable domain/host from a link string for display badges.
     public static func extractHost(_ raw: String) -> String? {
-        let s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard isLink(s) else { return nil }
+        guard let s = extractURL(raw) else { return nil }
         let lower = s.lowercased()
         if lower.hasPrefix("mailto:") {
             return String(s.dropFirst("mailto:".count))

@@ -406,15 +406,26 @@ private func testLinkClassification() throws {
         "https://github.com/deerweek/cliphistory",
         "github.com",
         "example.co.uk/a/b",
-        "mailto:hi@example.com"
+        "mailto:hi@example.com",
+        "看看 https://example.com 这个",
+        "网站链接https://github.com/deerweek/cliphistory，强烈推荐！",
+        "【淘宝】https://m.tb.cn/h.5xxxx 点击链接直接打开",
+        "官网地址：github.com/deerweek/cliphistory"
     ]
     for link in links {
         try expectEqual(ContentClassifier.classify(link), .link)
     }
+    try expectEqual(
+        ContentClassifier.extractURL("网站链接https://github.com/deerweek/cliphistory，强烈推荐！"),
+        "https://github.com/deerweek/cliphistory"
+    )
+    try expectEqual(
+        ContentClassifier.extractHost("【淘宝】https://m.tb.cn/h.5xxxx 点击链接直接打开"),
+        "m.tb.cn"
+    )
     let notLinks = [
         "普通的一段文字",
         "hello world",
-        "看看 https://example.com 这个",
         "just.a.sentence with spaces",
         "file",
         "3.14"
