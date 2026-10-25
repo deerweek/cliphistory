@@ -1,191 +1,180 @@
-# 剪贴板记录 · ClipHistory
+<div align="center">
+
+<img src="docs/assets/icon.png" width="108" height="108" alt="ClipHistory App Icon" />
+
+# 剪贴板记录 · ClipHistory 2.0
+
+**原生 macOS 双栏智能剪贴板工作台**  
+*A Native macOS Dual-Pane Smart Clipboard & Text Expansion Workbench*
 
 <p align="center">
-  <strong>找回你复制过的每一段内容，并把它送回刚才的应用。</strong>
-  <br>
-  一款轻量、隐私优先的 macOS 菜单栏剪贴板历史工具。
+  <a href="README.md"><strong>🇨🇳 简体中文</strong></a> &nbsp;·&nbsp;
+  <a href="README_EN.md"><strong>🇺🇸 English</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/deerweek/cliphistory/releases/latest"><strong>⬇️ 下载最新版 / Download v2.0.0</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/deerweek/cliphistory/issues"><strong>💬 反馈建议 / Issues</strong></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/deerweek/cliphistory/releases/latest">下载最新版</a> ·
-  <a href="https://github.com/deerweek/cliphistory/issues">报告问题</a> ·
-  <a href="https://github.com/deerweek/cliphistory/releases">查看版本</a>
+  <a href="https://github.com/deerweek/cliphistory/releases/latest"><img src="https://img.shields.io/badge/Release-v2.0.0-2674F2?style=flat-square&logo=github" alt="Release v2.0.0"></a>
+  <img src="https://img.shields.io/badge/macOS-14.0%2B%20Sonoma-111111?style=flat-square&logo=apple" alt="macOS 14+">
+  <img src="https://img.shields.io/badge/Apple%20Silicon-arm64-0A84FF?style=flat-square&logo=apple&logoColor=white" alt="Apple Silicon">
+  <img src="https://img.shields.io/badge/Swift-6.0-F05138?style=flat-square&logo=swift&logoColor=white" alt="Swift 6">
+  <img src="https://img.shields.io/badge/Storage-Local%20SQLite%20WAL-2E8B57?style=flat-square&logo=sqlite&logoColor=white" alt="Local SQLite">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="MIT License"></a>
 </p>
+
+<br/>
+
+<img src="docs/assets/hero-showcase.png" width="100%" alt="ClipHistory 2.0 macOS Dual-Pane Showcase" />
+
+</div>
+
+---
+
+## ✨ 为什么选择 ClipHistory 2.0？ · Why ClipHistory 2.0?
+
+> **中文**：大多数剪贴板工具只是一个被动的“复制历史列表”。**ClipHistory 2.0** 将**双栏实时预览**、**全局输入法 `;短码` 自动展开**、**macOS 原生 Vision 截图 OCR 搜索**、**Jev 70ms 智能推荐回复**以及**可插拔 AI / Shell 动作工坊**融为一体——让你从“找回复制过的内容”进化到“一键完成转换与回复”。
+>
+> **English**: Most clipboard managers are passive history lists. **ClipHistory 2.0** unifies a **Live Dual-Pane Inspector**, **System-Wide `;trigger` Text Expansion**, **Native Apple Vision Screenshot OCR Search**, **Jev 70ms Smart Reply Recommendations**, and a **Pluggable AI / Shell Action Studio** into a single lightweight macOS menu bar app.
 
 <p align="center">
-  <img src="https://img.shields.io/badge/macOS-14%2B-111111?logo=apple" alt="macOS 14+">
-  <img src="https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white" alt="Swift 6">
-  <img src="https://img.shields.io/badge/Apple%20Silicon-arm64-2674F2?logo=apple&logoColor=white" alt="Apple Silicon arm64">
-  <img src="https://img.shields.io/badge/data-local%20only-2E8B57" alt="Local data only">
+  <img src="docs/assets/feature-grid.png" width="100%" alt="ClipHistory 2.0 Core Capabilities" />
 </p>
 
-剪贴板记录常驻菜单栏，自动保存复制过的文本、链接和图片。按下快捷键呼出面板，搜索或选择一条记录后，应用会尝试把它粘贴回打开面板前的聊天框、编辑器或浏览器。常用内容还可以保存成快捷回复，反复使用。
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🖥 双栏实时预览 · Live Split Inspector (<code>⌘Y</code>)</h3>
+      <p>左侧高速定位历史，右侧实时展示完整多行正文、代码等宽排版、<code>#HEX</code> 色块预览、链接域名卡片与高清大图，搜索关键词在列表与预览区同步高亮。</p>
+      <p><em>Browse history on the left while inspecting full text, monospaced code, color swatches, and high-res images on the right with live keyword highlighting.</em></p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>⌨️ 全局输入法短码 · Global Text Expander</h3>
+      <p>为常用地址、开票税号、邮箱或代码片段绑定如 <code>;dz</code>、<code>@mail</code> 等触发短码。在微信、浏览器或终端任意输入框敲出短码，即刻原地替换为完整内容（支持 <code>{{date}}</code>、<code>{{time}}</code>、<code>{{clipboard}}</code> 动态占位符）。</p>
+      <p><em>Bind trigger codes like <code>;dz</code> or <code>@mail</code> to snippets and expand them inline in any macOS app with dynamic template variables.</em></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🔍 截图自动 OCR · Native Vision Screenshot OCR</h3>
+      <p>复制任何截图或图片后，后台静默调用 macOS 原生 <code>Vision</code> 引擎识别简繁中文与英文并建立索引。直接搜索发票号或报错词即可找出对应截图，支持一键复制图中文字或导出 PNG。</p>
+      <p><em>Automatically indexes Chinese & English text inside copied screenshots via Apple's on-device <code>Vision</code> framework so you can search images by the text inside them.</em></p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>⚡ 智能回复与验证码提取 · Smart Reply & OTP Card</h3>
+      <p>复制含验证码或快递单号的短信时，顶部自动弹出号码卡片一键粘贴；复制客户或同事提问时，通过本地 N-gram 与可选 <code>Jev</code> 70ms 决策模型推荐最佳快捷回复（<code>⌘R</code> 一键上屏）。</p>
+      <p><em>Extracts 4–8 digit OTP codes and tracking numbers into a one-click banner, and recommends matching quick-reply snippets (<code>⌘R</code>) when you copy incoming messages.</em></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🪄 可插拔动作工坊 · Pluggable Action Studio</h3>
+      <p>内置免配置中英互译（<code>⌘T</code> 即译即贴）、合并 PDF 断行、美化 JSON、去空格与 URL 解码；支持在「动作工坊」中自由创建和原位编辑自定义 AI Prompt 指令或本地 Shell 脚本插件。</p>
+      <p><em>Includes zero-config instant translation (<code>⌘T</code>), PDF line-wrap cleaner, and JSON formatter, plus custom AI prompts and local Shell script pipelines.</em></p>
+    </td>
+    <td width="50%" valign="top">
+      <h3>🛡 隐私优先与连续粘贴 · Privacy & Sequential Paste</h3>
+      <p>纯本地 SQLite WAL 存储；支持一键暂停记录、敏感应用黑名单（默认排除钥匙串、密码、1Password、Bitwarden）；支持 <code>⇧↵</code> 连续粘贴并自动下移下一条，填表效率翻倍。</p>
+      <p><em>100% local SQLite storage with one-click recording pause, app blacklist, JSON backup export/import, and <code>⇧↵</code> sequential paste-and-advance.</em></p>
+    </td>
+  </tr>
+</table>
 
-## 你可以用它做什么
+---
 
-- **找回历史**：自动记录文本、链接、代码、颜色值和图片；置顶项优先，快捷回复随后，普通历史按复制时间倒序；支持多关键词分词搜索与命中词高亮。
-- **双栏实时预览与动作工坊（`⌘Y`）**：右侧实时预览完整正文、代码高亮、色块色卡、图片预览；内置中英互译、合并 PDF 断行、美化 JSON、提取验证码/单号、去空格、URL 解码，并支持在**动作工坊**中自由添加/编辑自定义 AI Prompt 指令或本地 Shell 脚本插件。
-- **截图自动 Vision OCR 索引**：复制任何截图或图片后，后台自动使用 macOS 原生 `Vision` 引擎提取图中简繁中文与英文并建立搜索索引，直接输入截图内的文字即可搜出对应图片，也支持在预览栏一键提取文字或导出 PNG。
-- **验证码与快递单号一键提取**：复制含验证码或单号的短信/邮件时，预览栏顶部自动弹出号码提取卡片，支持一键仅粘贴号码。
-- **全局输入法短码自动展开**：为快捷回复或常用条目绑定如 `;dz`、`@mail` 等短码，在微信、浏览器或终端等任意输入框敲出短码即可原地自动替换为完整内容（支持 `{{date}}`、`{{time}}`、`{{clipboard}}` 动态占位符）。
-- **智能推荐回复与自动归档（Local N-gram + Jev 引擎）**：自动按「地址与联系」「代码与命令」「验证码/单号」「外文内容」「工作沟通」语义归档，并在复制对方消息时智能推荐最匹配的快捷回复（`⌘R` 一键粘贴）。
-- **即译即贴（`⌘T`）与连续粘贴（`⇧↵`）**：选中外文或中文按 `⌘T` 即刻翻译并粘贴；填表时按 `⇧↵` 可粘贴当前项并自动下移到下一条连续粘贴。
-- **三种面板模式与外观定制**：支持粘贴后关闭、始终置顶、吸附到指定应用窗口；支持调节透明度（55%–100%）、强调色与内容密度。
-- **隐私保护与数据备份**：支持一键暂停剪贴板记录、自定义敏感应用黑名单（默认排除钥匙串、密码、1Password、Bitwarden），以及快捷回复与动作配置的 JSON 导入/导出备份与数据库压缩瘦身。
+## 🚀 30 秒快速安装 · Quick Installation
 
-> 当前 Release 提供 Apple Silicon（arm64）构建，最低支持 macOS 14 Sonoma。
+### 方式一：直接下载安装包 · Download Prebuilt Release (Recommended)
 
-## 30 秒开始使用
+| 安装包类型 / Package | 适用架构 / Arch | 下载链接 / Download |
+| :--- | :--- | :--- |
+| **macOS 磁盘映像 (`.dmg`)** | Apple Silicon (`arm64`, macOS 14+) | [**📦 ClipHistory-macos-arm64-v2.0.0.dmg**](https://github.com/deerweek/cliphistory/releases/download/v2.0.0/ClipHistory-macos-arm64-v2.0.0.dmg) |
+| **macOS 压缩包 (`.zip`)** | Apple Silicon (`arm64`, macOS 14+) | [**📦 ClipHistory-macos-arm64-v2.0.0.zip**](https://github.com/deerweek/cliphistory/releases/download/v2.0.0/ClipHistory-macos-arm64-v2.0.0.zip) |
+| **SHA-256 校验文件** | Checksums | [`.dmg.sha256`](https://github.com/deerweek/cliphistory/releases/download/v2.0.0/ClipHistory-macos-arm64-v2.0.0.dmg.sha256) · [`.zip.sha256`](https://github.com/deerweek/cliphistory/releases/download/v2.0.0/ClipHistory-macos-arm64-v2.0.0.zip.sha256) |
 
-### 直接下载
+1. 下载并打开 `.dmg` 或解压 `.zip`，将 **`剪贴板记录.app`** 拖入 `~/Applications`（或 `/Applications`）并启动。  
+   *Download the `.dmg` or `.zip`, move **`剪贴板记录.app`** into `~/Applications`, and launch it.*
+2. 首次启动时，前往 **系统设置 → 隐私与安全性 → 辅助功能**，开启 `剪贴板记录.app` 的权限（用于向目标窗口发送 `⌘V` 自动粘贴及监听全局 `;短码`）。  
+   *Grant **Accessibility** permission in **System Settings → Privacy & Security → Accessibility** to enable auto-paste (`⌘V`) and global `;trigger` expansion.*
 
-1. 打开 [GitHub Releases](https://github.com/deerweek/cliphistory/releases/latest)，下载 `ClipHistory-macos-arm64-*.zip`。
-2. 解压，把 `剪贴板记录.app` 放入 `~/Applications/`，然后启动它。
-3. 第一次启动时，打开 **系统设置 → 隐私与安全性 → 辅助功能**，勾选当前运行的这份 `剪贴板记录.app`。
-4. 复制一段文本，按 `⌘D` 呼出面板，选择记录并按回车。
-
-### 辅助功能权限
-
-辅助功能权限用于两件事：把选中的内容自动粘贴到目标应用，以及在“吸附到应用”模式下读取目标窗口的位置。请授权设置页中显示的**当前运行路径**，默认路径是：
-
-```text
-~/Applications/剪贴板记录.app
-```
-
-macOS 会把不同路径下的同名应用当作不同副本。请不要同时运行桌面、下载目录和 `~/Applications` 中的多个副本；如果重新移动了应用，需要在辅助功能列表中重新勾选新路径对应的那一份。
-
-没有辅助功能权限时，选择记录仍然会把内容写入系统剪贴板，但应用不会自动发送 `⌘V`；你可以在目标输入框中手动粘贴。设置页会显示授权状态、实际路径和当前版本，也提供打开系统设置、在 Finder 中定位应用和重新启动的按钮。
-
-### 自动粘贴的目标
-
-面板打开时，应用会先记住当时位于前台的其他应用。选择记录时，它会尝试把内容粘贴回这个应用；如果目标已经退出、没有可用窗口，或应用无法安全识别目标，则内容仍会留在系统剪贴板中，供手动粘贴。
-
-## 常用快捷键
-
-| 操作 | 快捷键 |
-| --- | --- |
-| 呼出 / 收起面板 | `⇧⌘V` / `⌥⌘V` / `⌘D`（可在设置中切换） |
-| 上下选择 / 分类切换 | `↑` / `↓` · `Tab` / `⇧Tab` |
-| 粘贴选中内容 | `↵`（双击条目） |
-| 连续粘贴并下移下一条 | `⇧↵` |
-| 仅复制到剪贴板（不自动粘贴） | `⌘C` 或 `⌥↵` |
-| 中英互译并直接粘贴 | `⌘T` |
-| 粘贴智能推荐回复 | `⌘R` |
-| 快速粘贴前 1–9 条 | `⌘1`–`⌘9`（`⌥⌘1`–`9` 仅复制） |
-| 编辑条目 / 绑定输入法短码 | `⌘E` |
-| 新建快捷回复 | `⌘N` |
-| 展开 / 收起右侧预览栏 | `⌘Y` |
-| 转为快捷回复 / 普通历史 | `⌥S` |
-| 置顶 / 取消置顶 | `⌥P` |
-| 删除选中条目 | `⌥⌫` |
-| 清空筛选或收起面板 | `Esc` |
-
-面板搜索框默认聚焦，因此数字键会输入搜索词；快速粘贴请使用 `⌘` + 数字。
-
-## 内容与限制
-
-- 文本最多保存 200,000 个字符。
-- 图片会转换为 PNG 保存，单张图片超过 12 MB 时跳过记录。
-- 当剪贴板同时包含文本和图片时，优先记录非空文本；只有没有可用文本时才记录图片。
-- 链接包括常见的网页链接、邮箱地址、`ftp` / `mailto` 等链接形式。
-- 被密码管理器标记为隐藏、瞬态或敏感的剪贴板内容会自动跳过。
-
-## 隐私设计
-
-- 应用运行时不联网，不上传剪贴板内容，也不依赖云服务。
-- 历史和图片只保存在本机 SQLite 数据库：
-
-  ```text
-  ~/Library/Application Support/剪贴板记录/history.sqlite
-  ```
-
-- 自动粘贴使用当前应用的辅助功能权限，把选中内容写入系统剪贴板后向目标进程发送 `⌘V`。
-- 不需要权限也可以查看、搜索和管理历史，只是需要手动完成最后一次粘贴。
-
-## 从源码构建
-
-### 环境要求
-
-- macOS 14 Sonoma 或更高版本
-- Xcode Command Line Tools
-- Swift 6 工具链
-
-当前构建脚本默认生成 Apple Silicon arm64 应用。如果要在 Intel Mac 上构建，可以覆盖目标架构：
-
-```bash
-TARGET=x86_64-apple-macos14.0 ./scripts/package-app.sh
-```
-
-如果本机 SDK 路径与脚本默认值不同，也可以同时指定 SDK：
-
-```bash
-SDKROOT="$(xcrun --sdk macosx --show-sdk-path)" ./scripts/package-app.sh
-```
-
-### 编译并安装
+### 方式二：从源码一键构建安装 · Build from Source
 
 ```bash
 git clone https://github.com/deerweek/cliphistory.git
 cd cliphistory
-./scripts/package-app.sh
+./scripts/package-app.sh && open ~/Applications/剪贴板记录.app
 ```
 
-脚本会编译、签名并安装到：
+---
 
-```text
-~/Applications/剪贴板记录.app
+## ⌨️ 快捷键速查矩阵 · Keyboard Shortcuts Matrix
+
+| 快捷键 / Shortcut | 中文说明 | English Action |
+| :--- | :--- | :--- |
+| <kbd>⇧</kbd> <kbd>⌘</kbd> <kbd>V</kbd> / <kbd>⌘</kbd> <kbd>D</kbd> | 呼出 / 收起剪贴板面板（可在设置中切换） | Toggle ClipHistory floating panel |
+| <kbd>↑</kbd> / <kbd>↓</kbd> | 上下移动选中条目 | Navigate items up / down |
+| <kbd>Tab</kbd> / <kbd>⇧</kbd> <kbd>Tab</kbd> | 循环切换分类（全部 / 文本 / 链接 / 图片 / 快捷回复） | Cycle through category tabs |
+| <kbd>↵</kbd>（或双击条目） | **直接粘贴**选中内容到目标窗口 | **Paste** selected item into target app |
+| <kbd>⇧</kbd> <kbd>↵</kbd> | **连续粘贴并下移**：粘贴当前项、保持面板不关并自动选中下一条 | **Sequential Paste**: paste current item & advance to next row |
+| <kbd>⌘</kbd> <kbd>T</kbd> | **即译即贴**：将选中外文译为中文（或中文译英）并直接粘贴 | **Instant Translate & Paste** (EN ↔ ZH) |
+| <kbd>⌘</kbd> <kbd>R</kbd> | 一键粘贴顶部智能推荐的快捷回复 | Paste recommended quick-reply snippet |
+| <kbd>⌘</kbd> <kbd>1</kbd> … <kbd>⌘</kbd> <kbd>9</kbd> | 直接粘贴列表中第 1–9 条（配合 <kbd>⌥</kbd> 为仅复制） | Quick-paste item #1–#9 (hold <kbd>⌥</kbd> to copy only) |
+| <kbd>⌘</kbd> <kbd>C</kbd> / <kbd>⌥</kbd> <kbd>↵</kbd> | **仅复制**到系统剪贴板，不自动发送粘贴 | **Copy only** to system clipboard without pasting |
+| <kbd>⌘</kbd> <kbd>E</kbd> | 编辑当前条目 / 绑定输入法触发 `;短码` | Edit item title, body, or `;trigger` code |
+| <kbd>⌘</kbd> <kbd>N</kbd> | 新建快捷回复与短码 | Create new quick-reply snippet |
+| <kbd>⌘</kbd> <kbd>Y</kbd> | 展开 / 收起右侧实时预览分栏 | Toggle right-hand Live Inspector pane |
+| <kbd>⌥</kbd> <kbd>S</kbd> | 在「快捷回复」与「普通历史」之间一键互转 | Convert between Snippet and History item |
+| <kbd>⌥</kbd> <kbd>P</kbd> | 置顶 / 取消置顶选中条目 | Pin / unpin selected item |
+| <kbd>⌥</kbd> <kbd>⌫</kbd> | 删除选中条目 | Delete selected item |
+| <kbd>Esc</kbd> | 清空当前搜索/筛选条件，再次按下收起面板 | Clear active search/filters, or dismiss panel |
+
+---
+
+## 🧠 智能双层架构 · Two-Tier Smart Architecture
+
+```mermaid
+flowchart LR
+    A["⌘C 复制文本或截图<br/>Copy Text / Screenshot"] --> B{"隐私与过滤检查<br/>Privacy & App Filter"}
+    B -->|允许记录 Allowed| C["SQLite WAL 本地存储<br/>Local Store & Dedup"]
+    C --> D["Tier 1 (<1ms 本地引擎)<br/>N-gram 排序 + 规则归档 + 验证码提取"]
+    C --> E["Apple Vision 引擎<br/>后台静默截图 OCR 索引"]
+    D --> F{"可选 Tier 2 (~70ms)<br/>TypeSafe Jev 决策模型"}
+    F --> G["双栏工作台实时响应<br/>⌘R 推荐回复 · ⌘T 即译即贴 · 动作工坊"]
 ```
 
-默认使用本地 ad-hoc 签名，不需要开发者证书或钥匙串权限；签名中包含稳定的 Bundle ID designated requirement，因此同一路径重新编译后不会仅因可执行文件 hash 变化而丢失辅助功能授权。如果你有开发者签名，可以指定：
+- **Tier 1：`<1ms` 本地零延迟引擎（[`SmartRanker.swift`](Sources/ClipHistory/SmartRanker.swift) & [`ContentClassifier.swift`](Sources/ClipHistory/ContentClassifier.swift)）**
+  - **短码精确命中保护（Exact-Match Guardrail）**：输入 `;dz` 等短码时，精确匹配项直接锁定榜首，绝不被高频长文本挤下。
+  - **字符级 Unigram + Bigram 混合检索**：兼容中文无空格短语与多关键词分词匹配。
+  - **6 类自动语义归档**：自动识别「地址与联系」「代码与命令」「验证码/单号」「外文内容」「工作沟通」。
+- **Tier 2：可选 `~70ms` TypeSafe `Jev` System-One 决策模型（[`SmartService.swift`](Sources/ClipHistoryApp/SmartService.swift)）**
+  - 在设置中填入可选 API Key 后，后台并行校准最匹配的快捷回复置信度与推荐动作。
 
-```bash
-CLIPHISTORY_CODESIGN_IDENTITY="你的签名身份" ./scripts/package-app.sh
-```
+---
 
-只生成 `.app` 而不安装：
-
-```bash
-CLIPHISTORY_SKIP_INSTALL=1 ./scripts/package-app.sh
-```
-
-如果脚本无法覆盖旧应用，可以先在 Finder 中删除旧的「剪贴板记录」，或者指定完整的安装目标路径：
-
-```bash
-CLIPHISTORY_INSTALL_DEST="/自定义目录/剪贴板记录.app" ./scripts/package-app.sh
-```
-
-### 运行测试
-
-核心库是平台无关的，macOS 和 Linux 都可以运行核心测试；菜单栏界面依赖 AppKit / SwiftUI，只能在 macOS 上构建和运行。
-
-```bash
-./scripts/run-tests.sh          # macOS，完整核心测试
-./scripts/run-tests-linux.sh   # Linux，仅核心库测试
-```
-
-## 项目结构
+## 🗂 项目结构与测试 · Project Layout & Testing
 
 ```text
 Package.swift
 Sources/
-  ClipHistory/                 平台无关核心：模型、SQLite、分类、去重、清理、布局算法
-  CSQLite/                     Linux 的 SQLite 系统模块映射
-  ClipHistoryApp/              macOS 菜单栏应用、SwiftUI 面板、监听、粘贴和快捷键
-Tests/ClipHistoryTests/         核心库测试
+  ClipHistory/                 跨平台核心库（SQLite WAL、分类器、N-gram 重排、动作引擎、备份导入导出）
+  CSQLite/                     Linux SQLite 模块映射
+  ClipHistoryApp/              macOS 原生双栏应用（AppKit/SwiftUI、Vision OCR、短码监听、智能翻译）
+Tests/
+  ClipHistoryTests/            30 项核心单元测试（覆盖去重、排序、OCR 索引、验证码提取与备份还原）
 scripts/
-  package-app.sh               编译、签名并安装 macOS 应用
-  signing.sh                   本地签名逻辑
-  run-tests.sh                 macOS 测试
-  run-tests-linux.sh           Linux 核心测试
+  package-app.sh               编译、写入 AppIcon、签名并安装 ~/Applications/剪贴板记录.app
+  run-tests.sh                 运行 macOS 完整测试套件
+  run-tests-linux.sh           运行 Linux 跨平台核心测试
 ```
 
-## 下载与版本
+```bash
+./scripts/run-tests.sh          # 运行全部 30 项核心单元测试 (macOS)
+./scripts/run-tests-linux.sh    # 运行跨平台核心库测试 (Linux)
+```
 
-- [下载最新版](https://github.com/deerweek/cliphistory/releases/latest)
-- [查看全部 Releases](https://github.com/deerweek/cliphistory/releases)
-- 当前稳定版：**v2.0.0**
-- 当前预编译包：**Apple Silicon / arm64**（提供 `.zip`、`.dmg` 与 `.sha256` 校验文件）
+---
 
-## 许可证
+## 📄 开源许可 · License
 
-当前仓库尚未指定开源许可证。明确添加 `LICENSE` 文件前，请不要将项目标记为 MIT、Apache-2.0 或其他开源许可证。
+本项目基于 [MIT License](LICENSE) 开源。  
+Released under the [MIT License](LICENSE).
