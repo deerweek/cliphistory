@@ -94,8 +94,10 @@ extension HotkeyCombo {
         switch self {
         case .commandD, .shiftCommandD:
             return UInt32(kVK_ANSI_D)
-        case .shiftCommandV:
+        case .shiftCommandV, .optionCommandV, .controlCommandV:
             return UInt32(kVK_ANSI_V)
+        case .optionSpace:
+            return UInt32(kVK_Space)
         }
     }
 
@@ -105,6 +107,12 @@ extension HotkeyCombo {
             return UInt32(cmdKey)
         case .shiftCommandD, .shiftCommandV:
             return UInt32(cmdKey | shiftKey)
+        case .optionCommandV:
+            return UInt32(cmdKey | optionKey)
+        case .controlCommandV:
+            return UInt32(cmdKey | controlKey)
+        case .optionSpace:
+            return UInt32(optionKey)
         }
     }
 }

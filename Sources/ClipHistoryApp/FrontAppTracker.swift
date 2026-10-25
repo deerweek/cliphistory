@@ -3,6 +3,7 @@ import AppKit
 @MainActor
 final class FrontAppTracker {
     private(set) var previousApp: NSRunningApplication?
+    var onAppActivated: ((NSRunningApplication) -> Void)?
     private var observer: NSObjectProtocol?
 
     func start() {
@@ -17,6 +18,7 @@ final class FrontAppTracker {
                 guard let self, let app else { return }
                 if !Self.isSelf(app), !app.isTerminated {
                     self.previousApp = app
+                    self.onAppActivated?(app)
                 }
             }
         }

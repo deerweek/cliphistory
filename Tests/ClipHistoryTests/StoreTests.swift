@@ -24,7 +24,16 @@ enum StoreTests {
             ("按分类筛选", testItemsFilterByCategory),
             ("分类计数", testCategoryCounts),
             ("分类归属推导", testCategoryDerivation),
-            ("外观设置可持久化并限制透明度", testAppearanceSettingsPersistAndClamp)
+            ("外观设置可持久化并限制透明度", testAppearanceSettingsPersistAndClamp),
+            ("编辑条目与历史转快捷回复", testUpdateItemAndConvertToSnippet),
+            ("快速统计总条数", testTotalCount),
+            ("代码、颜色值与域名识别", testSmartContentClassifiers),
+            ("智能语义归档与使用频次统计", testSmartArchiveAndUseCount),
+            ("输入法短码精确命中保护与重排", testSmartRankerExactMatchGuardrailAndReply),
+            ("动作工坊内置转换与动态模板展开", testClipActionEngineAndTemplates),
+            ("图片 OCR 文字索引与搜索", testImageOCRIndexingAndSearch),
+            ("验证码与单号智能提取", testCredentialCodeExtraction),
+            ("JSON 备份导出与去重导入", testBackupExportAndImport)
         ]
 
         var failed = 0
@@ -46,6 +55,89 @@ enum StoreTests {
     }
 }
 
+private func testSmartArchiveAndUseCount() throws {
+    try withStore { store in
+        let addr = try store.recordHistory("收件人：张三 北京市海淀区中关村南大街 1 号 联系电话 13800138000", sourceApp: "微信", now: Date(timeIntervalSince1970: 1000))
+        try expectEqual(addr.smartTag, .addressContact)
+        try expectEqual(addr.sourceApp, "微信")
+        try expectEqual(addr.useCount, 0)
+
+        try store.recordUse(id: addr.id, now: Date(timeIntervalSince1970: 5000))
+        try store.recordUse(id: addr.id, now: Date(timeIntervalSince1970: 6000))
+        let updated = try store.items(smartTag: .addressContact).first
+        try expectEqual(updated?.useCount, 2)
+        try expectEqual(updated?.updatedAt, Date(timeIntervalSince1970: 1000))
+        try expect(try store.hasHistoryItem(body: addr.body), "应检测到已存在的文本历史")
+
+        // Multi-token search across source_app and body
+        let multiSearch = try store.items(query: "微信 海淀")
+        try expectEqual(multiSearch.map(\.id), [addr.id])
+
+        // Brand-new copied item stays #1 in empty-query ranker even when older item has higher useCount
+        let newest = try store.recordHistory("刚刚复制的新内容", sourceApp: "Safari", now: Date(timeIntervalSince1970: 2000))
+        let rankedDefault = SmartRanker.rankItems(try store.items(), query: "", targetAppBundleID: "微信")
+        try expectEqual(rankedDefault.first?.id, newest.id)
+
+        let foreign = try store.recordHistory("Please let me know when the invoice is ready for review.")
+        try expectEqual(foreign.smartTag, .foreignText)
+        try expect(foreign.isForeignLanguage, "英文长句应被识别为外文")
+
+        let otp = try store.recordHistory("【顺丰速运】您的取件验证码为 839201，请凭此码取件。")
+        try expectEqual(otp.smartTag, .credential)
+    }
+}
+
+private func testSmartRankerExactMatchGuardrailAndReply() throws {
+    try withStore { store in
+        let s1 = try store.addSnippet(
+            title: "公司发票抬头",
+            body: "名称：未来科技有限公司\n税号：91310000XXXXXX",
+            triggerCode: ";fp"
+        )
+        let s2 = try store.addSnippet(
+            title: "收货地址",
+            body: "上海市徐汇区漕河泾开发区 88 号，手机 13912345678",
+            triggerCode: ";dz"
+        )
+
+        let all = try store.items()
+        let rankedByCode = SmartRanker.rankItems(all, query: ";dz")
+        try expectEqual(rankedByCode.first?.id, s2.id)
+
+        // Test contextual reply recommendation when copying a question
+        let snippets = try store.snippets()
+        let rec = SmartRanker.localRecommendReply(
+            for: "你好，麻烦发一下你们公司的开票税号和发票抬头",
+            snippets: snippets
+        )
+        try expectEqual(rec?.snippet.id, s1.id)
+        try expect((rec?.confidence ?? 0) >= 0.60, "发票提问应高置信度匹配发票快捷回复")
+    }
+}
+
+private func testClipActionEngineAndTemplates() throws {
+    let fixedDate = Date(timeIntervalSince1970: 1_700_000_000)
+    let expanded = ClipActionEngine.expandTemplateVariables(
+        in: "日期:{{date}} 剪贴板:{{clipboard}}",
+        currentClipboard: "测试词",
+        now: fixedDate
+    )
+    try expect(expanded.contains("剪贴板:测试词"), "应展开 clipboard 占位符")
+    try expect(!expanded.contains("{{date}}"), "应展开 date 占位符")
+
+    let extracted = ClipActionEngine.runBuiltIn(
+        id: "extract_digits",
+        on: "您的登录验证码是 492817，5分钟内有效。"
+    )
+    try expectEqual(extracted, "492817")
+
+    let formattedJSON = ClipActionEngine.runBuiltIn(
+        id: "format_json",
+        on: "{\"b\":1,\"a\":2}"
+    )
+    try expect(formattedJSON?.contains("\n") == true, "JSON 应被多行美化")
+}
+
 private func testAppearanceSettingsPersistAndClamp() throws {
     let suiteName = "ClipHistoryTests-Settings-\(UUID().uuidString)"
     guard let defaults = UserDefaults(suiteName: suiteName) else {
@@ -57,19 +149,71 @@ private func testAppearanceSettingsPersistAndClamp() throws {
     try expectEqual(settings.panelAccent, .system)
     try expectEqual(settings.panelDensity, .comfortable)
     try expectEqual(settings.panelOpacity, AppSettings.defaultPanelOpacity)
+    try expectEqual(settings.showPreviewPane, true)
 
     settings.panelAccent = .purple
     settings.panelDensity = .compact
     settings.panelOpacity = 0.73
+    settings.showPreviewPane = false
     let reloaded = AppSettings(defaults: defaults)
     try expectEqual(reloaded.panelAccent, .purple)
     try expectEqual(reloaded.panelDensity, .compact)
     try expectEqual(reloaded.panelOpacity, 0.73)
+    try expectEqual(reloaded.showPreviewPane, false)
 
     reloaded.panelOpacity = 0.1
     try expectEqual(reloaded.panelOpacity, 0.55)
     reloaded.panelOpacity = 2
     try expectEqual(reloaded.panelOpacity, 1.0)
+}
+
+private func testUpdateItemAndConvertToSnippet() throws {
+    try withStore { store in
+        let history = try store.recordHistory("原始文本", now: Date(timeIntervalSince1970: 10))
+        try expectEqual(history.kind, .history)
+        try expectEqual(history.title, nil)
+
+        let edited = try store.updateItem(
+            id: history.id,
+            title: "常用抬头",
+            body: "https://github.com/deerweek",
+            triggerCode: ";gh",
+            now: Date(timeIntervalSince1970: 20)
+        )
+        try expectEqual(edited.title, "常用抬头")
+        try expectEqual(edited.body, "https://github.com/deerweek")
+        try expectEqual(edited.contentType, .link)
+        try expectEqual(edited.triggerCode, ";gh")
+        try expectEqual(edited.kind, .history)
+
+        let promoted = try store.convertToSnippet(id: history.id, now: Date(timeIntervalSince1970: 30))
+        try expectEqual(promoted.kind, .snippet)
+        try expectEqual(promoted.category, .snippet)
+        try expectEqual(promoted.title, "常用抬头")
+    }
+}
+
+private func testTotalCount() throws {
+    try withStore { store in
+        try expectEqual(try store.totalCount(), 0)
+        _ = try store.recordHistory("第一条")
+        _ = try store.addSnippet(title: "标题", body: "第二条")
+        try expectEqual(try store.totalCount(), 2)
+    }
+}
+
+private func testSmartContentClassifiers() throws {
+    try expect(ContentClassifier.isCodeLike("func hello() {\n    let x = 1\n    return x\n}"), "Swift 代码应被识别")
+    try expect(ContentClassifier.isCodeLike("{\"name\": \"clip\", \"version\": 2}"), "JSON 应被识别")
+    try expect(!ContentClassifier.isCodeLike("今天下午三点开会"), "普通自然语言不应被识别为代码")
+
+    let hex = ContentClassifier.extractHexColor("#3B82F6")
+    try expectEqual(hex?.hex, "#3B82F6")
+    let shortHex = ContentClassifier.extractHexColor("#f0a")
+    try expectEqual(shortHex?.hex, "#FF00AA")
+    try expect(ContentClassifier.extractHexColor("not a color") == nil, "非颜色值应返回 nil")
+
+    try expectEqual(ContentClassifier.extractHost("https://www.github.com/deerweek/cliphistory"), "github.com")
 }
 
 private struct Expectation: Error, CustomStringConvertible {
@@ -270,10 +414,10 @@ private func testLinkClassification() throws {
     let notLinks = [
         "普通的一段文字",
         "hello world",
-        "看看 https://example.com 这个",   // 含空格，不是纯链接
+        "看看 https://example.com 这个",
         "just.a.sentence with spaces",
         "file",
-        "3.14"                              // TLD 必须是字母
+        "3.14"
     ]
     for text in notLinks {
         try expectEqual(ContentClassifier.classify(text), .text)
@@ -363,4 +507,53 @@ private func testCategoryDerivation() throws {
     try expectEqual(snippetLink.category, .snippet)
     try expectEqual(link.category, .link)
     try expectEqual(text.category, .text)
+}
+
+private func testImageOCRIndexingAndSearch() throws {
+    try withStore { store in
+        let png = Data([0x89, 0x50, 0x4E, 0x47, 0x0A])
+        let img = try store.recordImage(png, width: 1280, height: 720)
+        try expectEqual(img.imageDimensionsLabel, "图片 · 1280×720")
+        try expect(img.imageOCRText == nil, "初始无 OCR 文字")
+
+        try store.updateImageOCRText(id: img.id, ocrText: "发票号码 98765432\n校验码 ABCD")
+        let matched = try store.items(query: "98765432")
+        try expectEqual(matched.count, 1)
+        try expectEqual(matched.first?.id, img.id)
+        try expectEqual(matched.first?.imageDimensionsLabel, "图片 · 1280×720")
+        try expectEqual(matched.first?.imageOCRText, "发票号码 98765432\n校验码 ABCD")
+        try expect(matched.first?.secondaryPreviewText.contains("发票号码 98765432") == true, "副标题预览包含 OCR 文字")
+    }
+}
+
+private func testCredentialCodeExtraction() throws {
+    try withStore { store in
+        let otp = try store.recordHistory("【阿里云】您的验证码为 839204，请在 5 分钟内完成验证。")
+        try expectEqual(otp.smartTag, .credential)
+        try expectEqual(otp.extractedCredentialCode, "839204")
+    }
+}
+
+private func testBackupExportAndImport() throws {
+    try withStore { sourceStore in
+        _ = try sourceStore.addSnippet(title: "公司地址", body: "北京市朝阳区", triggerCode: ";dz", smartTag: .addressContact)
+        let pinned = try sourceStore.recordHistory("重要置顶笔记", sourceApp: "备忘录")
+        try sourceStore.setPinned(id: pinned.id, pinned: true)
+
+        let customActions = [
+            ClipActionDescriptor(id: "custom_1", title: "测试动作", symbolName: "sparkles", kind: .aiPrompt, payload: "prompt")
+        ]
+        let backupData = try sourceStore.exportBackup(actions: customActions)
+
+        try withStore { destStore in
+            let firstImport = try destStore.importBackup(backupData)
+            try expectEqual(firstImport.importedCount, 2)
+            try expectEqual(firstImport.actions?.first?.title, "测试动作")
+
+            let items = try destStore.items()
+            try expectEqual(items.count, 2)
+            try expect(items.contains(where: { $0.triggerCode == ";dz" && $0.kind == .snippet }), "快捷回复短码保留")
+            try expect(items.contains(where: { $0.body == "重要置顶笔记" && $0.isPinned }), "置顶历史保留")
+        }
+    }
 }

@@ -12,12 +12,6 @@ final class PasteService {
         let bundlePath: String
         let bundleIdentifier: String
 
-        /// Accessibility is the permission required by this app's direct
-        /// `CGEvent` delivery.  The post-event preflight is kept as a
-        /// diagnostic only: on some macOS versions it reports false until a
-        /// process has posted its first event even though the Accessibility
-        /// checkbox is already enabled.  Gating paste on that transient value
-        /// made the UI claim "未授权" and skipped every paste.
         var trusted: Bool { axTrusted }
 
         var message: String {
@@ -51,12 +45,23 @@ final class PasteService {
         self.monitor = monitor
     }
 
-    /// Resolve the destination before the panel receives focus.  Callers
-    /// should retain the returned process and pass it back to `paste`; doing
-    /// a fresh frontmost-app lookup after a row click is racy because the
-    /// panel is then the active application.
+    /// Resolve the destination before the panel receives focus.
     func capturePasteTarget() -> NSRunningApplication? {
         tracker.capturePasteTarget()
+    }
+
+    func frontmostOtherApp() -> NSRunningApplication? {
+        tracker.frontmostOtherApp()
+    }
+
+    /// Writes text to clipboard without triggering `⌘V`.
+    func copyOnly(_ text: String) {
+        monitor.writeWithoutRecording(text)
+    }
+
+    /// Writes image data to clipboard without triggering `⌘V`.
+    func copyImageOnly(_ data: Data) {
+        monitor.writeImageWithoutRecording(data)
     }
 
     func paste(_ text: String, preferredApp: NSRunningApplication? = nil) {
@@ -72,9 +77,6 @@ final class PasteService {
     private func deliver(preferredApp: NSRunningApplication?) {
         let target = preferredApp ?? tracker.frontmostOtherApp()
         guard let target, !FrontAppTracker.isSelf(target), !target.isTerminated else {
-            // There is no safe destination if the panel was opened without a
-            // previous application. Keep the selected value on the clipboard
-            // so the user can still paste it manually.
             NSLog("剪贴板记录没有找到粘贴目标；内容已写入剪贴板")
             return
         }
@@ -83,49 +85,32 @@ final class PasteService {
             return
         }
 
-        // Activating an application is asynchronous. A fixed delay works for
-        // most apps, but chat clients can take longer to make their input
-        // window key. Retry activation until the target is frontmost, then
-        // post directly to its process. The target was captured before the
-        // panel opened, so this cannot accidentally become the panel.
         var attempts = 0
         let pid = target.processIdentifier
-        NSLog("剪贴板记录准备粘贴到 %@ (pid=%d, bundle=%@, path=%@)",
-              target.localizedName ?? "未知应用",
-              pid,
-              target.bundleIdentifier ?? "(无 bundle id)",
-              target.bundleURL?.path ?? "(无路径)")
+
         func activateAndPaste() {
             guard !target.isTerminated else { return }
-            // A non-activating panel can remain the active application even
-            // after it has been ordered out. `activateAllWindows` alone only
-            // orders the target's windows; it does not always transfer the
-            // active application on macOS. Force the hand-off before posting
-            // the per-process event so ⌘V cannot be consumed by our panel.
-            _ = target.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
-            let isFrontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier == target.processIdentifier
+            let alreadyFrontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier == pid
+            if !alreadyFrontmost {
+                _ = target.activate()
+            }
+            let isFrontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier == pid
             if isFrontmost || attempts >= 20 {
-                // Route the event directly to the destination process. A
-                // global event tap can race with the panel's final mouse/key
-                // event and send ⌘V back to this app instead.
-                // Even when the workspace reports the target as frontmost,
-                // its key window may not have been restored yet. Give AppKit
-                // one run-loop turn (and a short settling interval) after
-                // activation before injecting the command.
-                let settle = isFrontmost ? 0.22 : 0.08
+                let settle = alreadyFrontmost ? 0.025 : (isFrontmost ? 0.04 : 0.03)
                 DispatchQueue.main.asyncAfter(deadline: .now() + settle) {
                     guard !target.isTerminated else { return }
-                    Self.postCommandV(to: pid)
-                    NSLog("剪贴板记录已发送 ⌘V 到 pid=%d", pid)
+                    Self.postCommandV(to: pid, isFrontmost: isFrontmost)
                 }
                 return
             }
             attempts += 1
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.025) {
                 activateAndPaste()
             }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+
+        let initialDelay = (NSWorkspace.shared.frontmostApplication?.processIdentifier == pid) ? 0.005 : 0.015
+        DispatchQueue.main.asyncAfter(deadline: .now() + initialDelay) {
             activateAndPaste()
         }
     }
@@ -150,9 +135,6 @@ final class PasteService {
         return false
     }
 
-    /// Ask macOS to show its consent prompt and then open the exact
-    /// Accessibility settings pane. SettingsView polls the status afterwards,
-    /// so enabling the checkbox is reflected without restarting the app.
     static func requestAccessibilityAccess() {
         _ = isTrusted(prompt: true)
         openAccessibilitySettings()
@@ -188,13 +170,18 @@ final class PasteService {
         }
     }
 
-    private static func postCommandV(to processID: pid_t) {
-        let source = CGEventSource(stateID: .hidSystemState)
+    private static func postCommandV(to processID: pid_t, isFrontmost: Bool) {
+        let source = CGEventSource(stateID: .combinedSessionState) ?? CGEventSource(stateID: .hidSystemState)
         let down = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(0x09), keyDown: true)
         down?.flags = .maskCommand
         let up = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(0x09), keyDown: false)
         up?.flags = .maskCommand
-        down?.postToPid(processID)
-        up?.postToPid(processID)
+        if isFrontmost {
+            down?.post(tap: .cghidEventTap)
+            up?.post(tap: .cghidEventTap)
+        } else {
+            down?.postToPid(processID)
+            up?.postToPid(processID)
+        }
     }
 }

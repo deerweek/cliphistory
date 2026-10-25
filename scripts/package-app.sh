@@ -29,12 +29,16 @@ swiftc \
   -framework SwiftUI \
   -framework Carbon \
   -framework ServiceManagement \
-  -framework ApplicationServices
+  -framework ApplicationServices \
+  -framework Vision
 
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin" "$app/Contents/MacOS/剪贴板记录"
 cp "$root/scripts/Info.plist" "$app/Contents/Info.plist"
+if [[ -f "$root/scripts/AppIcon.icns" ]]; then
+  cp "$root/scripts/AppIcon.icns" "$app/Contents/Resources/AppIcon.icns"
+fi
 printf 'APPL????' > "$app/Contents/PkgInfo"
 chmod +x "$app/Contents/MacOS/剪贴板记录"
 sign_app "$app"

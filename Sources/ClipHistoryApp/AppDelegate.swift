@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var monitor: ClipboardMonitor!
     private var tracker: FrontAppTracker!
     private var pasteService: PasteService!
+    private var textExpander: TextExpanderService!
     private var hotkey: HotkeyListener!
     private var panelController: PanelController!
 
@@ -28,18 +29,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         monitor = ClipboardMonitor(store: store, settings: settings)
         pasteService = PasteService(tracker: tracker, monitor: monitor)
         panelController = PanelController(store: store, pasteService: pasteService, settings: settings)
+        tracker.onAppActivated = { [weak self] app in
+            self?.panelController.handleExternalAppActivated(app)
+        }
+
+        textExpander = TextExpanderService(store: store, settings: settings, pasteService: pasteService)
+        textExpander.onExpanded = { [weak self] _ in
+            self?.panelController.reloadIfVisible()
+        }
+        textExpander.start()
+
         panelController.onHotkeyChange = { [weak self] combo in
             self?.hotkey.register(combo)
-            self?.rebuildMenu()
+        }
+        panelController.onCleanupRulesChange = { [weak self] in
+            self?.monitor.runCleanupNow()
+            self?.panelController.reloadIfVisible()
         }
         panelController.onSnippetError = { [weak self] message in
             self?.presentAlert(title: "无法保存", message: message)
         }
         panelController.settingsModel.onHotkeyChange = panelController.onHotkeyChange
+        panelController.settingsModel.onCleanupRulesChange = panelController.onCleanupRulesChange
+        panelController.settingsModel.onPauseStateChange = { [weak self] paused in
+            self?.panelController.model.isRecordingPaused = paused
+            self?.updateStatusItemAppearance()
+        }
+        panelController.model.onPauseStateChange = { [weak self] in
+            guard let self else { return }
+            self.panelController.settingsModel.isRecordingPaused = self.settings.isRecordingPaused
+            self.updateStatusItemAppearance()
+        }
+
         monitor.onChange = { [weak self] in
             self?.panelController.reloadIfVisible()
-            self?.rebuildMenu()
         }
+        monitor.onItemRecorded = { [weak self] item in
+            self?.panelController.handleNewlyCopiedItem(item)
+        }
+
         setupStatusItem()
         monitor.start()
         syncLaunchAtLogin()
@@ -51,7 +79,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         hotkey.register(settings.hotkey)
 
-        rebuildMenu()
         panelController.applyDisplayMode()
     }
 
@@ -59,11 +86,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let ownPID = ProcessInfo.processInfo.processIdentifier
         for app in NSRunningApplication.runningApplications(withBundleIdentifier: "local.cliphistory") {
             guard app.processIdentifier != ownPID else { continue }
-            // There must be exactly one running copy.  Leaving an older
-            // bundle alive is especially confusing for a menu-bar app: its
-            // status item remains visible and its Accessibility checkbox can
-            // look enabled while the newly launched copy is the one handling
-            // the paste.  The copy launched most recently owns this session.
             if !app.terminate() {
                 app.forceTerminate()
             }
@@ -77,8 +99,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "clipboard", accessibilityDescription: "剪贴板记录")
-            button.image?.isTemplate = true
+            button.target = self
+            button.action = #selector(handleStatusItemClick(_:))
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        }
+        updateStatusItemAppearance()
+    }
+
+    private func updateStatusItemAppearance() {
+        guard let button = statusItem?.button else { return }
+        let paused = settings.isRecordingPaused
+        let symbol = paused ? "pause.circle" : "doc.on.clipboard"
+        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: paused ? "剪贴板记录（已暂停）" : "剪贴板记录")
+        button.image?.isTemplate = true
+        button.toolTip = paused ? "已暂停记录剪贴板 · 左键打开面板 / 右键恢复" : "左键打开面板 · 右键显示菜单"
+    }
+
+    @objc private func handleStatusItemClick(_ sender: NSStatusBarButton) {
+        guard let event = NSApp.currentEvent else {
+            tracker.rememberCurrent()
+            panelController.toggleFromStatusItem()
+            return
+        }
+        let isRightClick = event.type == .rightMouseUp
+            || event.modifierFlags.contains(.control)
+            || event.modifierFlags.contains(.option)
+
+        if isRightClick {
+            let menu = buildContextMenu()
+            statusItem.menu = menu
+            sender.performClick(nil)
+            statusItem.menu = nil
+        } else {
+            tracker.rememberCurrent()
+            panelController.toggleFromStatusItem()
         }
     }
 
@@ -94,23 +148,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func savedCount() -> Int {
-        (try? store.items().count) ?? 0
+        (try? store.totalCount()) ?? 0
     }
 
-    private func rebuildMenu() {
+    private func buildContextMenu() -> NSMenu {
         let menu = NSMenu()
-        let status = NSMenuItem(title: "后台运行中 · 已保存 \(savedCount()) 条", action: nil, keyEquivalent: "")
+        let paused = settings.isRecordingPaused
+        let statusTitle = paused
+            ? "已暂停记录剪贴板 · 已保存 \(savedCount()) 条"
+            : "后台运行中 · 已保存 \(savedCount()) 条"
+        let status = NSMenuItem(title: statusTitle, action: nil, keyEquivalent: "")
         status.isEnabled = false
         menu.addItem(status)
         menu.addItem(.separator())
         menu.addItem(withTitle: "打开面板（\(settings.hotkey.menuLabel)）", action: #selector(openPanel), keyEquivalent: "")
-        menu.addItem(withTitle: "添加快捷回复", action: #selector(openAddSnippet), keyEquivalent: "")
+        menu.addItem(withTitle: "添加快捷回复与短码…", action: #selector(openAddSnippet), keyEquivalent: "")
+        menu.addItem(withTitle: "动作工坊（插件管理）…", action: #selector(openActionStudio), keyEquivalent: "")
         menu.addItem(.separator())
-        menu.addItem(withTitle: "清空未置顶", action: #selector(clearUnpinned), keyEquivalent: "")
+        menu.addItem(
+            withTitle: paused ? "恢复记录剪贴板" : "暂停记录剪贴板（保护密码/隐私）",
+            action: #selector(togglePauseRecording),
+            keyEquivalent: ""
+        )
+        menu.addItem(withTitle: "清空未置顶历史", action: #selector(clearUnpinned), keyEquivalent: "")
         menu.addItem(.separator())
-        menu.addItem(withTitle: "设置…", action: #selector(openSettings), keyEquivalent: "")
+        menu.addItem(withTitle: "设置…", action: #selector(openSettings), keyEquivalent: ",")
         menu.addItem(withTitle: "退出", action: #selector(quit), keyEquivalent: "q")
-        statusItem.menu = menu
+        return menu
     }
 
     @objc private func openPanel() {
@@ -120,12 +184,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openAddSnippet() {
         tracker.rememberCurrent()
-        panelController.show(page: .composer, makeKey: true)
+        panelController.openComposerForNewSnippet()
+    }
+
+    @objc private func openActionStudio() {
+        tracker.rememberCurrent()
+        panelController.openActionStudio()
     }
 
     @objc private func openSettings() {
         tracker.rememberCurrent()
         panelController.show(page: .settings, makeKey: true)
+    }
+
+    @objc private func togglePauseRecording() {
+        panelController.model.toggleRecordingPaused()
     }
 
     @objc private func clearUnpinned() {
